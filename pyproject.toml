@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "my-log-be"
+version = "0.1.0"
+description = ""
+authors = ["gmyun1999 <dbsrbals26@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "5.0.6"
+djangorestframework = "3.15.2"
+django-environ = "0.11.2"
+django-dotenv = "1.4.2"
+pydantic = "2.7.4"
+django-cors-headers = "4.4.0"
+dacite = "1.8.1"
+arrow = "1.3.0"
+mypy = "1.11.2"
+pre-commit = "3.8.0"
+whitenoise = "6.8.2"
+psycopg2-binary = "2.9.10"
+pymysql = "1.1.1"
+types-pymysql = "1.1.0.20240524"
+httpx = "0.27.2"
+ulid-py = "1.1.0"
+jinja2 = "3.1.4"
+asgiref = "3.8.1"
+django-cte = "1.3.3"
+django-extensions = "3.2.3"
+pydot = "3.0.2"
+gunicorn = "23.0.0"
+drf-yasg = "1.21.8"
+drf-spectacular = "0.27.2"
+boto3 = "1.35.72"
+pyjwt = "^2.10.1"
+
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

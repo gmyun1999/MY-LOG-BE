@@ -1,0 +1,3 @@
+GET {{mylog-host}}/user/login/google?code=123897123789312978321879213
+Content-Type: application/json
+Authorization: Bearer {{mylog-jwt}}
