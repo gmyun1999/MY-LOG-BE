@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from common.interface.response import ErrorResponse, success_response
-from common.interface.validators import validate_query_params
+from common.interface.validators import validate_body, validate_query_params
 from common.response_msg import LoginMessage
 from user.domain.user import OAuthType, User
 from user.domain.user_role import UserRole
@@ -25,7 +25,7 @@ class OAuthLoginView(APIView):
     @dataclass
     
     class AuthCode(BaseModel):
-        code: str = Field(min_length=32)
+        token: str = Field(min_length=32)
 
     def __init__(self):
         self.oauth_factory = OauthFactory()
@@ -33,7 +33,7 @@ class OAuthLoginView(APIView):
 
     @extend_schema(
         summary="OAuth 로그인 엔드포인트",
-        description="code 쿼리 파라미터를 사용하여 OAuth 인증을 진행하고, 회원가입 또는 로그인 후 access/refresh 토큰을 반환합니다.",
+        description="access_token 을 body로 받아 OAuth 인증을 진행하고, 회원가입 또는 로그인 후 access/refresh 토큰을 반환합니다.",
         parameters=[
             PydanticToDjangoSerializer.convert(AuthCode)
         ],
@@ -69,13 +69,11 @@ class OAuthLoginView(APIView):
             ),
         }
     )
-    @validate_query_params(AuthCode)
-    def get(self, request, auth_server: str, params: AuthCode):
+    @validate_body(AuthCode)
+    def post(self, request, auth_server: str, body: AuthCode):
         auth_server = OAuthType(auth_server)
         oauth_provider_vo: IOAuthProvider = self.oauth_factory.create(auth_server)
-        token = oauth_provider_vo.get_oauth_token(oauth_code=params.code)
-        oauth_user_vo = oauth_provider_vo.get_oauth_user(access_token=token)
-
+        oauth_user_vo = oauth_provider_vo.get_oauth_user(access_token=body.token)
         user = self.user_service.get_user_from_oauth_user(oauth_user=oauth_user_vo)
 
         if user is None:

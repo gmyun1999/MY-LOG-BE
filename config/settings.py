@@ -11,11 +11,7 @@ environ.Env.read_env(env_file=BASE_DIR / ".env")
 ENV = env("ENV", default="localhost")
 SECRET_KEY = env("SECRET_KEY", default="")
 DEBUG = env.bool("DEBUG", default=True)
-<<<<<<< HEAD
 ALLOWED_HOSTS = ["*"]
-=======
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
->>>>>>> de5c1f7c2bef64ea8c8bf84a7a103952a0bad448
 
 # Logging Settings
 LOG_FILE = BASE_DIR / "logs/debug.log"
@@ -42,20 +38,11 @@ LOGGING = {
     },
 }
 
-<<<<<<< HEAD
 # swagger
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"
 }
-# SPECTACULAR_SETTINGS = {
-#     "TITLE": "user API",
-#     "DESCRIPTION": "Documentation for user API",
-#     "VERSION": "1.0.0",
-#     "APPEND_COMPONENTS": APPEND_COMPONENTS,
-# }
 
-=======
->>>>>>> de5c1f7c2bef64ea8c8bf84a7a103952a0bad448
 # Installed Apps
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -66,12 +53,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
-<<<<<<< HEAD
     "user"
-=======
->>>>>>> de5c1f7c2bef64ea8c8bf84a7a103952a0bad448
 ]
-
 # Middleware
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -83,6 +66,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+CORS_ALLOW_ALL_ORIGINS = True
 
 # URL Configuration
 ROOT_URLCONF = "config.urls"
@@ -113,11 +97,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-<<<<<<< HEAD
         "NAME": "mylogbe",
-=======
-        "NAME": "postgres",
->>>>>>> de5c1f7c2bef64ea8c8bf84a7a103952a0bad448
         "USER": "postgres",
         "PASSWORD": env("DB_PASSWORD", default=""),
         "HOST": env("DB_HOST", default=""),
@@ -150,10 +130,7 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DefaultContext.rounding = ROUND_HALF_UP
-<<<<<<< HEAD
 JWT_SECRET = env("JWT_SECRET", default="")
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="GOOGLE_CLIENT_SECRET")
 BASE_URL=env("BASE_URL", default="http://localhost:8000")
-=======
->>>>>>> de5c1f7c2bef64ea8c8bf84a7a103952a0bad448
