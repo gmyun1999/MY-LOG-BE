@@ -11,4 +11,4 @@ class HealthChecker(APIView):
             data={"status": "success", "ENV": ENV},
             status=status.HTTP_200_OK,
         )
-        #test
+        
