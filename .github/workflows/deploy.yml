@@ -1,9 +1,6 @@
 name: Deploy to Test server
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     types: [closed]
     branches:
@@ -11,7 +8,9 @@ on:
 
 jobs:
   deploy:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'dev')
+    if: github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'dev'
     name: SSH Deploy
     runs-on: ubuntu-latest
 
