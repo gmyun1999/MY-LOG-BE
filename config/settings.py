@@ -54,7 +54,8 @@ INSTALLED_APPS = [
     "rest_framework",
     "corsheaders",
     "user",
-    "common"
+    "common",
+    "monitoring_provisioner"
 ]
 # Middleware
 MIDDLEWARE = [
@@ -136,3 +137,6 @@ GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="GOOGLE_CLIENT_SECRET")
 BASE_URL=env("BASE_URL", default="http://localhost:8000")
 DB_NAME=env("DB_NAME", default="mylogbe")
+
+CELERY_BROKER_URL = ""
+CELERY_RESULT_BACKEND = ""
