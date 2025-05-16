@@ -1,6 +1,7 @@
 from pathlib import Path
 import environ
 from decimal import ROUND_HALF_UP, DefaultContext
+from kombu import Exchange, Queue
 
 # Initialize environment variables
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
+    'django_celery_results',
     "user",
     "common",
     "monitoring_provisioner"
@@ -127,6 +129,20 @@ TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = True
 
+# Celery Configuration
+CELERY_RESULT_BACKEND     = None
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_BROKER_URL = env(
+    "CELERY_BROKER_URL",
+    default="amqp://guest:guest@localhost:5672/%2F"
+)
+
+# redis configuration
+REDIS_HOST = env("REDIS_HOST", default="localhost")
+REDIS_PORT = env.int("REDIS_PORT", default=6379)
+REDIS_DB = env.int("REDIS_DB", default=0)
+
+
 # Default Primary Key
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
@@ -137,6 +153,4 @@ GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="GOOGLE_CLIENT_SECRET")
 BASE_URL=env("BASE_URL", default="http://localhost:8000")
 DB_NAME=env("DB_NAME", default="mylogbe")
-
-CELERY_BROKER_URL = ""
-CELERY_RESULT_BACKEND = ""
+GRAFANA_URL = env("GRAFANA_URL", default="http://localhost:3000")
