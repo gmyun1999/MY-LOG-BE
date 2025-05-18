@@ -31,16 +31,38 @@ class GrafanaAPI:
         response.raise_for_status()
         return response.json()
     
-    def create_service_account(self, name: str, role: str = "Viewer") -> Dict[str, Any]:
+    def create_service_account(self, name: str, role: str = None) -> Dict[str, Any]:
         """
         서비스 계정 생성
+        그라파나 12.0.0 버전 호환
         """
         url = f"{self.base_url}/api/serviceaccounts"
-        data = {"name": name, "role": role}
         
-        response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
+        # 그라파나 12.0.0 API 형식에 맞게 조정
+        data = {
+            "name": name,
+        }
+        
+        # role이 제공된 경우에만 추가
+        if role:
+            data["role"] = role
+        
+        try:
+            print(f"서비스 계정 생성 요청: URL={url}, 데이터={data}")
+            
+            response = requests.post(url, json=data, headers=self.headers)
+            
+            print(f"서비스 계정 생성 응답: 상태 코드={response.status_code}, 응답={response.text}")
+            
+            # 성공한 경우 응답 반환
+            if response.status_code in [200, 201]:
+                return response.json()
+            
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"서비스 계정 생성 예외: {str(e)}")
+            raise
     
     def create_service_token(self, service_account_id: int, token_name: str) -> Dict[str, Any]:
         """
@@ -53,13 +75,14 @@ class GrafanaAPI:
         response.raise_for_status()
         return response.json()
     
-    def set_folder_permissions(self, folder_uid: str, service_account_id: int, 
-                               permission: int = 1) -> Dict[str, Any]:
+    def set_folder_permissions(self, folder_uid: str, service_account_id: int, permission: int = 1) -> Dict[str, Any]:
         """
         폴더 권한 설정
-        permission: 1=Viewer, 2=Editor, 4=Admin
+        그라파나 12.0.0 버전 호환
         """
         url = f"{self.base_url}/api/folders/{folder_uid}/permissions"
+        
+        # 그라파나 12.0.0 버전에 맞는 형식
         data = {
             "items": [
                 {"role": "Viewer", "permission": 0},  # 기존 권한 제거
@@ -67,9 +90,36 @@ class GrafanaAPI:
             ]
         }
         
-        response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
-        return response.json()
+        try:
+            print(f"폴더 권한 설정 요청: URL={url}, 데이터={data}")
+            
+            response = requests.post(url, json=data, headers=self.headers)
+            
+            print(f"폴더 권한 설정 응답: 상태 코드={response.status_code}, 응답={response.text}")
+            
+            if response.status_code in [200, 201]:
+                return response.json()
+            
+            # 오류 시 대체 형식 시도
+            if response.status_code >= 400:
+                print("대체 권한 설정 형식 시도...")
+                alt_data = {
+                    "items": [
+                        {"role": "Viewer", "permission": 0},
+                        {"userId": service_account_id, "permission": permission}
+                    ]
+                }
+                alt_response = requests.post(url, json=alt_data, headers=self.headers)
+                print(f"대체 폴더 권한 설정 응답: 상태 코드={alt_response.status_code}, 응답={alt_response.text}")
+                
+                if alt_response.status_code in [200, 201]:
+                    return alt_response.json()
+            
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"폴더 권한 설정 예외: {str(e)}")
+            raise
     
     def create_dashboard(self, dashboard_data: Dict[str, Any], folder_uid: str = None) -> Dict[str, Any]:
         """

@@ -69,43 +69,80 @@ def send_user_folder_creation_request(self, task_result_id: str):
     """
     사용자 폴더 생성 요청 처리 태스크
     """
+    print(f"사용자 폴더 생성 태스크 시작: {task_result_id}")
+    
     # 태스크 결과 레코드 조회
     try:
         task_result = TaskResultModel.objects.get(id=task_result_id)
         task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
     except TaskResultModel.DoesNotExist:
+        print(f"태스크 결과를 찾을 수 없음: {task_result_id}")
         return {"error": "Task result not found"}
     
     grafana_repo = GrafanaRepository()
+    result = {}
     
     try:
         user_id = task_data.get("user_id")
         user_name = task_data.get("user_name", f"User {user_id}")
         
         # 1. 사용자 폴더 생성
+        print(f"폴더 생성 시도: {user_name}'s Folder (user_{user_id})")
         folder_uid = grafana_repo.create_folder(user_id, f"{user_name}'s Folder")
+        result["folder_uid"] = folder_uid
+        print(f"폴더 생성 성공: {folder_uid}")
         
-        # 2. 서비스 계정 생성
-        service_account = grafana_repo.create_service_account(
-            name=f"service-{user_id}",
-            role="Viewer"
-        )
-        service_account_id = service_account["id"]
+        # 2. 서비스 계정 생성 (이 부분이 실패할 수 있음)
+        service_account_id = None
+        service_token = None
         
-        # 3. 서비스 계정 토큰 생성
-        token_result = grafana_repo.create_service_token(
-            service_account_id=service_account_id,
-            token_name=f"token-{user_id}"
-        )
+        try:
+            print(f"서비스 계정 생성 시도: service-{user_id}")
+            service_account = grafana_repo.create_service_account(
+                name=f"service-{user_id}",
+                role="Viewer"
+            )
+            
+            print(f"서비스 계정 응답: {service_account}")
+            
+            # 그라파나 12.0.0에서는 "id" 필드로 반환
+            if isinstance(service_account, dict):
+                service_account_id = service_account.get("id")
+                
+                if not service_account_id:
+                    # 또는 "uid" 필드로 반환될 수 있음
+                    service_account_id = service_account.get("uid")
+                
+                result["service_account_id"] = service_account_id
+                print(f"서비스 계정 생성 성공: {service_account_id}")
+                
+                # 3. 서비스 계정 토큰 생성
+                print(f"서비스 계정 토큰 생성 시도: token-{user_id}")
+                token_result = grafana_repo.create_service_token(
+                    service_account_id=service_account_id,
+                    token_name=f"token-{user_id}"
+                )
+                
+                print(f"토큰 생성 응답: {token_result}")
+                
+                if isinstance(token_result, dict):
+                    service_token = token_result.get("key")
+                    result["service_token"] = service_token
+                    print(f"서비스 계정 토큰 생성 성공")
+                    
+                    # 4. 폴더 권한 설정
+                    if folder_uid and service_account_id:
+                        print(f"폴더 권한 설정 시도: folder={folder_uid}, account={service_account_id}")
+                        grafana_repo.set_folder_permissions(folder_uid, service_account_id)
+                        print("폴더 권한 설정 성공")
         
-        # 4. 폴더 권한 설정
-        grafana_repo.set_folder_permissions(folder_uid, service_account_id)
-        
-        return {
-            "folder_uid": folder_uid,
-            "service_account_id": service_account_id,
-            "service_token": token_result["key"]
-        }
+        except Exception as e:
+            print(f"서비스 계정 관련 작업 중 오류: {str(e)}")
+            # 서비스 계정 생성 실패해도 폴더 UID는 반환
+            
+        return result
     
     except Exception as e:
+        print(f"사용자 폴더 생성 오류: {str(e)}")
         self.retry(exc=e)
