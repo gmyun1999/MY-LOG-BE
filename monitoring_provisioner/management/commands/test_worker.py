@@ -12,7 +12,7 @@ class Command(BaseCommand):
         parser.add_argument('--user-id', type=str, default="test_user_123")
         parser.add_argument('--user-name', type=str, default="Test User")
         parser.add_argument('--dashboard-title', type=str, default="Test Dashboard")
-        parser.add_argument('--action', type=str, choices=['folder', 'account', 'token', 'dashboard', 'all', 'sequence'], default='all')
+        parser.add_argument('--action', type=str, choices=['folder', 'account', 'token', 'dashboard', 'permissions', 'all', 'sequence'], default='all')
         parser.add_argument('--wait-for-completion', action='store_true', help='Wait for tasks to complete before proceeding')
 
     def handle(self, *args, **options):
@@ -29,7 +29,7 @@ class Command(BaseCommand):
         
         # 순차적 실행 옵션
         if action == 'sequence':
-            self.stdout.write("폴더 생성 → 서비스 계정 → 대시보드 순차 실행 중...")
+            self.stdout.write("폴더 생성 → 서비스 계정 → 권한 설정 → 대시보드 순차 실행 중...")
             
             # 1. 폴더 생성
             self.stdout.write("1. 폴더 생성 요청 중...")
@@ -57,9 +57,26 @@ class Command(BaseCommand):
                 time.sleep(2)
                 service_account_id = self.get_service_account_id_from_task(account_task_id)
             
-            # 폴더 UID가 있으면 대시보드 생성
+            # 3. 폴더 권한 설정 (새로 추가된 부분)
+            if folder_uid and service_account_id:
+                self.stdout.write(f"3. 폴더 권한 설정 요청 중... (폴더 UID: {folder_uid}, 서비스 계정 ID: {service_account_id})")
+                permission_task_id = executor.set_folder_permissions(folder_uid, service_account_id)
+                self.stdout.write(self.style.SUCCESS(f"폴더 권한 설정 태스크 등록 완료. Task ID: {permission_task_id}"))
+                
+                if wait_for_completion:
+                    self.wait_for_task_completion(permission_task_id)
+                else:
+                    # 권한 설정에 시간이 필요하므로 잠시 대기
+                    time.sleep(2)
+                
+                # 태스크 ID 정보 추가
+                task_ids['permission'] = permission_task_id
+            else:
+                self.stdout.write(self.style.WARNING("폴더 UID 또는 서비스 계정 ID를 가져올 수 없어 권한 설정을 진행하지 않습니다."))
+            
+            # 4. 대시보드 생성
             if folder_uid:
-                self.stdout.write(f"3. 대시보드 생성 요청 중... (폴더 UID: {folder_uid})")
+                self.stdout.write(f"4. 대시보드 생성 요청 중... (폴더 UID: {folder_uid})")
                 dashboard_task_id = executor.create_dashboard(
                     user_id=user_id,
                     title=dashboard_title,
@@ -95,6 +112,26 @@ class Command(BaseCommand):
             task_id = executor.create_service_account(user_id, "Viewer")
             task_ids['account'] = task_id
             self.stdout.write(self.style.SUCCESS(f"서비스 계정 생성 태스크 등록 완료. Task ID: {task_id}"))
+        
+        elif action in ['permissions']:
+            self.stdout.write("폴더 권한 설정 요청 중...")
+            # 폴더 UID 찾기
+            folder_uid = self.find_folder_uid_for_user(user_id)
+            if not folder_uid:
+                self.stdout.write(self.style.ERROR(f"사용자 {user_id}의 폴더를 찾을 수 없습니다."))
+                return
+            
+            # 서비스 계정 ID 찾기
+            account_name = f"service-{user_id}"
+            service_account_id = self.find_service_account_id(account_name)
+            if not service_account_id:
+                self.stdout.write(self.style.ERROR(f"서비스 계정 {account_name}을 찾을 수 없습니다."))
+                return
+            
+            self.stdout.write(f"폴더 UID: {folder_uid}, 서비스 계정 ID: {service_account_id}")
+            task_id = executor.set_folder_permissions(folder_uid, service_account_id)
+            task_ids['permissions'] = task_id
+            self.stdout.write(self.style.SUCCESS(f"폴더 권한 설정 태스크 등록 완료. Task ID: {task_id}"))
         
         elif action in ['dashboard', 'all']:
             self.stdout.write("대시보드 생성 요청 중...")
@@ -191,5 +228,25 @@ class Command(BaseCommand):
         
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"폴더 UID 검색 실패: {str(e)}"))
+        
+        return None
+    
+    def find_service_account_id(self, account_name):
+        """서비스 계정 ID 검색"""
+        try:
+            # 최근 서비스 계정 생성 태스크 조회
+            recent_account_task = TaskResultModel.objects.filter(
+                task_name="create_grafana_service_account",
+                result__contains=account_name,
+                status=TaskStatus.SUCCESS
+            ).order_by('-date_done').first()
+            
+            if recent_account_task and recent_account_task.result:
+                result_data = recent_account_task.result
+                if isinstance(result_data, dict) and 'id' in result_data:
+                    return result_data['id']
+                    
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"서비스 계정 ID 검색 실패: {str(e)}"))
         
         return None
