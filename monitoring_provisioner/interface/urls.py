@@ -5,4 +5,5 @@ from monitoring_provisioner.interface.views.monitoring_provision_view import Mon
 
 urlpatterns = [
     path("monitoring-projects/", view=MonitoringProvisionView.as_view(), name="monitoring-provision"),
+    path("monitoring-projects/dashboards/", view=MonitoringProvisionView.as_view(), name="monitoring-dashboards"),
 ]

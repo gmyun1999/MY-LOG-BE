@@ -154,3 +154,4 @@ GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="GOOGLE_CLIENT_SECRET
 BASE_URL=env("BASE_URL", default="http://localhost:8000")
 DB_NAME=env("DB_NAME", default="mylogbe")
 GRAFANA_URL = env("GRAFANA_URL", default="http://localhost:3000")
+GRAFANA_ADMIN_API_KEY = env("GRAFANA_ADMIN_API_KEY", default="")
