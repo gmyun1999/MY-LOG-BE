@@ -154,3 +154,5 @@ GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="GOOGLE_CLIENT_SECRET
 BASE_URL=env("BASE_URL", default="http://localhost:8000")
 DB_NAME=env("DB_NAME", default="mylogbe")
 GRAFANA_URL = env("GRAFANA_URL", default="http://localhost:3000")
+S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="mylogbe")
+S3_AWS_REGION = env("AWS_REGION", default="ap-northeast-2")
