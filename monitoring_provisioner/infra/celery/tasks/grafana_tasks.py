@@ -1,148 +1,206 @@
 import uuid
 from django.utils import timezone
 from monitoring_provisioner.infra.celery.tasks.utils import locking_task
-from monitoring_provisioner.infra.repository.grafana_repo import GrafanaRepository
-from monitoring_provisioner.infra.repository.task_result_repo import TaskResultRepository
-from monitoring_provisioner.domain.grafana_dashboard import GrafanaDashboard
+from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
+from monitoring_provisioner.domain.task_result import TaskStatus
 from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
 
+# 태스크 성공 시 상태 업데이트 함수
+def update_task_success(task_result_id, result):
+    try:
+        TaskResultModel.objects.filter(id=task_result_id).update(
+            status=TaskStatus.SUCCESS,
+            result=result,
+            date_done=timezone.now()
+        )
+        print(f"태스크 {task_result_id} 상태 업데이트: SUCCESS")
+    except Exception as e:
+        print(f"태스크 상태 업데이트 실패: {str(e)}")
 
 @locking_task(max_retries=3, default_retry_delay=5)
-def send_dashboard_creation_request(self, task_result_id: str):
+def create_grafana_folder(self, task_result_id, folder_name):
     """
-    대시보드 생성 요청 처리 태스크
+    그라파나 폴더 생성 태스크
+    첫 번째 인자로 task_result_id를 유지하여 시그널 핸들러와 호환성 유지
     """
-    # 태스크 결과 레코드 조회
+    print(f"태스크 {task_result_id} 실행 중...")
+    
     try:
+        # 태스크 정보 조회
         task_result = TaskResultModel.objects.get(id=task_result_id)
         task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
     except TaskResultModel.DoesNotExist:
-        return {"error": "Task result not found"}
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
     
-    grafana_repo = GrafanaRepository()
+    # 그라파나 API 호출
+    grafana_api = GrafanaAPI()
+    result = grafana_api.create_folder(folder_name)
     
-    try:
-        user_id = task_data.get("user_id")
-        title = task_data.get("title", f"Dashboard for User {user_id}")
-        folder_uid = task_data.get("folder_uid")
-        
-        # 대시보드 도메인 객체 생성
-        dashboard = GrafanaDashboard(
-            uid=f"user-{user_id}-{uuid.uuid4().hex[:8]}",
-            title=title,
-            user_id=user_id,
-            folder_uid=folder_uid,
-            tags=["auto-generated", f"user-{user_id}"],
-            panels=task_data.get("panels", [
-                # 기본 패널 설정
-                {
-                    "id": 1,
-                    "type": "graph",
-                    "title": "샘플 그래프",
-                    "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
-                }
-            ])
-        )
-        
-        # 대시보드 생성
-        created_dashboard = grafana_repo.create_dashboard(dashboard)
-        
-        # 서비스 계정 토큰으로 대시보드 URL 생성
-        service_token = task_data.get("service_token")
-        dashboard_url = None
-        
-        if service_token:
-            dashboard_url = f"{created_dashboard.url}?auth_token={service_token}"
-        
-        return {
-            "dashboard_uid": created_dashboard.uid,
-            "title": created_dashboard.title,
-            "url": dashboard_url or created_dashboard.url
-        }
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
     
-    except Exception as e:
-        self.retry(exc=e)
-
+    return result
 
 @locking_task(max_retries=3, default_retry_delay=5)
-def send_user_folder_creation_request(self, task_result_id: str):
+def create_grafana_service_account(self, task_result_id, name, role="Viewer"):
     """
-    사용자 폴더 생성 요청 처리 태스크
+    그라파나 서비스 계정 생성 태스크
     """
-    print(f"사용자 폴더 생성 태스크 시작: {task_result_id}")
+    print(f"태스크 {task_result_id} 실행 중...")
     
-    # 태스크 결과 레코드 조회
     try:
         task_result = TaskResultModel.objects.get(id=task_result_id)
         task_data = task_result.result or {}
         print(f"태스크 데이터: {task_data}")
     except TaskResultModel.DoesNotExist:
-        print(f"태스크 결과를 찾을 수 없음: {task_result_id}")
-        return {"error": "Task result not found"}
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
     
-    grafana_repo = GrafanaRepository()
-    result = {}
+    grafana_api = GrafanaAPI()
+    print(f"서비스 계정 생성 요청: URL={grafana_api.base_url}/api/serviceaccounts, 데이터={{'name': '{name}', 'role': '{role}'}}")
+    result = grafana_api.create_service_account(name, role)
+    print(f"서비스 계정 생성 응답: 상태 코드=201, 응답={result}")
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result
+
+@locking_task(max_retries=3, default_retry_delay=5)
+def create_grafana_service_token(self, task_result_id, service_account_id, token_name):
+    """
+    그라파나 서비스 토큰 생성 태스크
+    """
+    print(f"태스크 {task_result_id} 실행 중...")
     
     try:
-        user_id = task_data.get("user_id")
-        user_name = task_data.get("user_name", f"User {user_id}")
-        
-        # 1. 사용자 폴더 생성
-        print(f"폴더 생성 시도: {user_name}'s Folder (user_{user_id})")
-        folder_uid = grafana_repo.create_folder(user_id, f"{user_name}'s Folder")
-        result["folder_uid"] = folder_uid
-        print(f"폴더 생성 성공: {folder_uid}")
-        
-        # 2. 서비스 계정 생성 (이 부분이 실패할 수 있음)
-        service_account_id = None
-        service_token = None
-        
-        try:
-            print(f"서비스 계정 생성 시도: service-{user_id}")
-            service_account = grafana_repo.create_service_account(
-                name=f"service-{user_id}",
-                role="Viewer"
-            )
-            
-            print(f"서비스 계정 응답: {service_account}")
-            
-            # 그라파나 12.0.0에서는 "id" 필드로 반환
-            if isinstance(service_account, dict):
-                service_account_id = service_account.get("id")
-                
-                if not service_account_id:
-                    # 또는 "uid" 필드로 반환될 수 있음
-                    service_account_id = service_account.get("uid")
-                
-                result["service_account_id"] = service_account_id
-                print(f"서비스 계정 생성 성공: {service_account_id}")
-                
-                # 3. 서비스 계정 토큰 생성
-                print(f"서비스 계정 토큰 생성 시도: token-{user_id}")
-                token_result = grafana_repo.create_service_token(
-                    service_account_id=service_account_id,
-                    token_name=f"token-{user_id}"
-                )
-                
-                print(f"토큰 생성 응답: {token_result}")
-                
-                if isinstance(token_result, dict):
-                    service_token = token_result.get("key")
-                    result["service_token"] = service_token
-                    print(f"서비스 계정 토큰 생성 성공")
-                    
-                    # 4. 폴더 권한 설정
-                    if folder_uid and service_account_id:
-                        print(f"폴더 권한 설정 시도: folder={folder_uid}, account={service_account_id}")
-                        grafana_repo.set_folder_permissions(folder_uid, service_account_id)
-                        print("폴더 권한 설정 성공")
-        
-        except Exception as e:
-            print(f"서비스 계정 관련 작업 중 오류: {str(e)}")
-            # 서비스 계정 생성 실패해도 폴더 UID는 반환
-            
-        return result
+        task_result = TaskResultModel.objects.get(id=task_result_id)
+        task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
+    except TaskResultModel.DoesNotExist:
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
     
-    except Exception as e:
-        print(f"사용자 폴더 생성 오류: {str(e)}")
-        self.retry(exc=e)
+    grafana_api = GrafanaAPI()
+    print(f"서비스 토큰 생성 요청: 계정 ID={service_account_id}, 토큰명={token_name}")
+    result = grafana_api.create_service_token(service_account_id, token_name)
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result
+
+@locking_task(max_retries=3, default_retry_delay=5)
+def set_grafana_folder_permissions(self, task_result_id, folder_uid, service_account_id):
+    """
+    그라파나 폴더 권한 설정 태스크
+    """
+    print(f"태스크 {task_result_id} 실행 중...")
+    
+    try:
+        task_result = TaskResultModel.objects.get(id=task_result_id)
+        task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
+    except TaskResultModel.DoesNotExist:
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
+    
+    grafana_api = GrafanaAPI()
+    result = grafana_api.set_folder_permissions(folder_uid, service_account_id)
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result
+
+@locking_task(max_retries=3, default_retry_delay=5)
+def create_grafana_dashboard(self, task_result_id, dashboard_data, folder_uid=None):
+    """
+    그라파나 대시보드 생성 태스크
+    """
+    print(f"태스크 {task_result_id} 실행 중...")
+    
+    try:
+        task_result = TaskResultModel.objects.get(id=task_result_id)
+        task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
+        
+        # 폴더 UID가 None이고 태스크 데이터에 있다면 사용
+        if folder_uid is None and 'folder_uid' in task_data:
+            folder_uid = task_data.get('folder_uid')
+            print(f"태스크 데이터에서 폴더 UID 사용: {folder_uid}")
+        
+        # 여기에 추가: 사용자 ID로 폴더 검색
+        if folder_uid is None and 'user_id' in task_data:
+            user_id = task_data.get('user_id')
+            try:
+                # 그라파나 API에서 폴더 목록 조회
+                grafana_api = GrafanaAPI()
+                folders = grafana_api.get_folders()
+                
+                # 폴더 이름 패턴
+                folder_pattern = f"User_{user_id}_"
+                
+                for folder in folders:
+                    if folder_pattern in folder.get('title', ''):
+                        folder_uid = folder.get('uid')
+                        print(f"그라파나 API에서 찾은 폴더 UID: {folder_uid}")
+                        break
+            except Exception as e:
+                print(f"폴더 검색 오류: {str(e)}")
+    except TaskResultModel.DoesNotExist:
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
+    
+    print(f"대시보드 생성 시작: dashboard_data={dashboard_data}, folder_uid={folder_uid}")
+    
+    grafana_api = GrafanaAPI()
+    result = grafana_api.create_dashboard(dashboard_data, folder_uid)
+    
+    print(f"대시보드 생성 결과: {result}")
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result
+
+@locking_task(max_retries=3, default_retry_delay=5)
+def get_grafana_dashboard(self, task_result_id, uid):
+    """
+    그라파나 대시보드 조회 태스크
+    """
+    print(f"태스크 {task_result_id} 실행 중...")
+    
+    try:
+        task_result = TaskResultModel.objects.get(id=task_result_id)
+        task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
+    except TaskResultModel.DoesNotExist:
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
+    
+    grafana_api = GrafanaAPI()
+    result = grafana_api.get_dashboard(uid)
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result
+
+@locking_task(max_retries=3, default_retry_delay=5)
+def get_grafana_folders(self, task_result_id):
+    """
+    그라파나 폴더 목록 조회 태스크
+    """
+    print(f"태스크 {task_result_id} 실행 중...")
+    
+    try:
+        task_result = TaskResultModel.objects.get(id=task_result_id)
+        task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
+    except TaskResultModel.DoesNotExist:
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
+    
+    grafana_api = GrafanaAPI()
+    result = grafana_api.get_folders()
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result

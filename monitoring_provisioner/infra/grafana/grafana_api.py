@@ -120,7 +120,7 @@ class GrafanaAPI:
         except Exception as e:
             print(f"폴더 권한 설정 예외: {str(e)}")
             raise
-    
+        
     def create_dashboard(self, dashboard_data: Dict[str, Any], folder_uid: str = None) -> Dict[str, Any]:
         """
         대시보드 생성
@@ -131,10 +131,20 @@ class GrafanaAPI:
             "overwrite": True
         }
         
+        # 중요: folderUid가 있을 때만 추가 (빈 문자열이나 None이 아닐 때)
         if folder_uid:
             data["folderUid"] = folder_uid
+            print(f"대시보드를 폴더 {folder_uid}에 생성합니다.")
+        else:
+            print("폴더 UID가 없어 루트에 대시보드를 생성합니다.")
+        
+        print(f"대시보드 생성 API 요청: {url}, 데이터: {data}")
         
         response = requests.post(url, json=data, headers=self.headers)
+        
+        if response.status_code >= 400:
+            print(f"대시보드 생성 오류: {response.status_code}, 응답: {response.text}")
+        
         response.raise_for_status()
         return response.json()
     
@@ -153,3 +163,25 @@ class GrafanaAPI:
         인증된 대시보드 URL 생성
         """
         return f"{self.base_url}/d/{uid}?orgId=1&from=now-6h&to=now&auth_token={token}"
+    
+    def get_folders(self) -> List[Dict[str, Any]]:
+        """
+        그라파나 폴더 목록 조회
+        """
+        url = f"{self.base_url}/api/folders"
+        
+        try:
+            response = requests.get(url, headers=self.headers)
+            
+            # 디버깅 로그
+            print(f"폴더 목록 조회 응답: 상태 코드={response.status_code}")
+            
+            if response.status_code >= 400:
+                print(f"폴더 목록 조회 오류: {response.status_code}, 응답: {response.text}")
+            
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"폴더 목록 조회 예외: {str(e)}")
+            # 오류 발생 시 빈 리스트 반환
+            return []

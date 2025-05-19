@@ -2,42 +2,40 @@ import uuid
 from django.utils import timezone
 from monitoring_provisioner.domain.task_result import TaskResult, TaskStatus
 from monitoring_provisioner.infra.celery.tasks.grafana_tasks import (
-    send_dashboard_creation_request,
-    send_user_folder_creation_request
+    create_grafana_folder,
+    create_grafana_service_account,
+    create_grafana_service_token,
+    set_grafana_folder_permissions,
+    create_grafana_dashboard,
+    get_grafana_dashboard,
+    get_grafana_folders
 )
 from monitoring_provisioner.infra.repository.task_result_repo import TaskResultRepository
-from monitoring_provisioner.infra.repository.grafana_repo import GrafanaRepository
 from monitoring_provisioner.service.i_executors.monitoring_dashboard_executor import MonitoringDashboardExecutor
-from monitoring_provisioner.domain.grafana_dashboard import GrafanaDashboard
 
 
 class GrafanaExecutor(MonitoringDashboardExecutor):
     
     def __init__(self):
         self.task_result_repo = TaskResultRepository()
-        self.grafana_repo = GrafanaRepository()
     
     def create_user_folder(self, user_id: str, user_name: str) -> str:
         """
-        사용자 전용 폴더 생성 요청을 Celery 태스크로 큐에 등록
-        
-        1. TaskResult 객체 생성 (PENDING 상태)
-        2. DB에 저장 후 ID를 얻어옴
-        3. send_user_folder_creation_request 태스크 호출
-        4. 저장된 TaskResult ID 반환
+        사용자 폴더 생성 태스크 요청
         """
-        # 고유 TaskResult ID와 Celery task_id 생성
         id = str(uuid.uuid4())
         task_id = str(uuid.uuid4())
         now = timezone.now()
-
-        # TaskResult 객체 구성
+        
+        folder_name = f"User_{user_id}_{user_name}'s Folder"
+        
         task_result = TaskResult(
             id=id,
             task_id=task_id,
-            task_name="send_user_folder_creation_request",
+            task_name="create_grafana_folder",
             status=TaskStatus.PENDING,
             result={
+                "folder_name": folder_name,
                 "user_id": user_id,
                 "user_name": user_name
             },
@@ -51,66 +49,32 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         saved_result = self.task_result_repo.save(task_result)
         
         # Celery 태스크 비동기 실행
-        send_user_folder_creation_request.apply_async(
-            args=(saved_result.id,),
+        create_grafana_folder.apply_async(
+            args=(saved_result.id, folder_name),  # task_result_id를 첫 번째 인자로 전달
             task_id=saved_result.task_id
         )
         
-        # TaskResult ID 반환 (추후 상태 조회용)
         return saved_result.id
     
-    def create_service_account(self, user_id: str) -> dict:
+    def create_service_account(self, user_id: str, role: str = "Viewer") -> str:
         """
-        서비스 계정과 토큰을 즉시 생성 (동기 방식)
-        
-        1. Grafana API로 서비스 계정 생성
-        2. 생성된 계정 ID로 토큰 발급
-        3. 서비스 계정 ID와 토큰 키 반환
+        서비스 계정 생성 태스크 요청
         """
-
-        # Viewer 권한의 서비스 계정 생성
-        service_account = self.grafana_repo.create_service_account(
-            name=f"service-{user_id}",
-            role="Viewer"
-        )
-        
-        # 방금 생성한 계정에 사용할 API 토큰 생성
-        token_result = self.grafana_repo.create_service_token(
-            service_account_id=service_account["id"],
-            token_name=f"token-{user_id}"
-        )
-        
-        return {
-            "service_account_id": service_account["id"],
-            "service_token": token_result["key"]
-        }
-    
-    def create_dashboard(self, user_id: str = None, title: str = None, panels: list = None) -> None:
-        """
-        대시보드 생성 요청 Celery 태스크로 큐에 등록
-        
-        1. TaskResult 객체 생성 (PENDING 상태)
-        2. DB에 저장 후 ID를 얻어옴
-        3. send_dashboard_creation_request 태스크 호출
-        """
-
         id = str(uuid.uuid4())
         task_id = str(uuid.uuid4())
         now = timezone.now()
         
-        # 기본 대시보드 정보 설정
+        account_name = f"service-{user_id}"
+        
         task_result = TaskResult(
             id=id,
             task_id=task_id,
-            task_name="send_dashboard_creation_request",
+            task_name="create_grafana_service_account",
             status=TaskStatus.PENDING,
             result={
-                "user_id": user_id,
-                "title": title or f"Dashboard for User {user_id}",
-                "panels": panels or [],
-                # Folder UID와 서비스 토큰은 실제 구현에서는 DB에서 조회
-                "folder_uid": None,
-                "service_token": None
+                "name": account_name,
+                "role": role,
+                "user_id": user_id
             },
             date_created=now.isoformat(),
             date_started=None,
@@ -120,20 +84,253 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         )
         saved_result = self.task_result_repo.save(task_result)
         
-        # Celery 태스크 비동기 실행
-        send_dashboard_creation_request.apply_async(
-            args=(saved_result.id,),
+        create_grafana_service_account.apply_async(
+            args=(saved_result.id, account_name, role),  # task_result_id를 첫 번째 인자로 전달
             task_id=saved_result.task_id
         )
+        
+        return saved_result.id
     
-    def get_dashboard(self, dashboard_uid: str) -> GrafanaDashboard:
+    def create_service_token(self, service_account_id: int, user_id: str) -> str:
         """
-        Grafana API를 통해 UID 기반으로 대시보드 정보 조회
+        서비스 토큰 생성 태스크 요청
         """
-        return self.grafana_repo.get_dashboard_by_uid(dashboard_uid)
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        token_name = f"token-{user_id}"
+        
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="create_grafana_service_token",
+            status=TaskStatus.PENDING,
+            result={
+                "service_account_id": service_account_id,
+                "token_name": token_name,
+                "user_id": user_id
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        create_grafana_service_token.apply_async(
+            args=(saved_result.id, service_account_id, token_name),  # 수정: task_result_id를 첫 번째 인자로 전달
+            task_id=saved_result.task_id
+        )
+        
+        return saved_result.id
     
-    def get_user_dashboards(self, user_id: str) -> list:
+    def set_folder_permissions(self, folder_uid: str, service_account_id: int) -> str:
         """
-        Grafana API를 통해 특정 사용자가 소유한 대시보드 목록 조회
+        폴더 권한 설정 태스크 요청
         """
-        return self.grafana_repo.get_dashboards_by_user(user_id)
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="set_grafana_folder_permissions",
+            status=TaskStatus.PENDING,
+            result={
+                "folder_uid": folder_uid,
+                "service_account_id": service_account_id
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        set_grafana_folder_permissions.apply_async(
+            args=(saved_result.id, folder_uid, service_account_id),  # 수정: task_result_id를 첫 번째 인자로 전달
+            task_id=saved_result.task_id
+        )
+        
+        return saved_result.id
+    
+    def create_dashboard(self, user_id: str = None, title: str = None, panels: list = None, folder_uid: str = None) -> str:
+        """
+        대시보드 생성 태스크 요청
+        """
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        # folder_uid가 제공되지 않은 경우
+        # 태스크 결과 DB에서 검색
+        if folder_uid is None and user_id:
+            try:
+                from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
+                # 해당 사용자의 가장 최근 폴더 생성 태스크 조회
+                recent_folder_task = TaskResultModel.objects.filter(
+                    task_name="create_grafana_folder",
+                    result__contains=user_id,  # JSON 필드 검색
+                    status=TaskStatus.SUCCESS
+                ).order_by('-date_done').first()
+                
+                if recent_folder_task and recent_folder_task.result:
+                    # 성공한 응답에서 폴더 UID 추출
+                    result_data = recent_folder_task.result
+                    if isinstance(result_data, dict) and 'uid' in result_data:
+                        folder_uid = result_data['uid']
+                        print(f"사용자 {user_id}의 최근 폴더 UID: {folder_uid}")
+            except Exception as e:
+                print(f"폴더 UID 검색 실패: {str(e)}")
+        
+        # Grafana API 직접 호출
+        if folder_uid is None and user_id:
+            try:
+                from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
+                api = GrafanaAPI()
+                folders = api.get_folders()
+                
+                # 폴더 이름 패턴
+                folder_pattern = f"User_{user_id}_"
+                
+                for folder in folders:
+                    if folder_pattern in folder.get('title', ''):
+                        folder_uid = folder.get('uid')
+                        print(f"그라파나 API에서 찾은 폴더 UID: {folder_uid}")
+                        break
+            except Exception as e:
+                print(f"그라파나 API에서 폴더 UID 검색 실패: {str(e)}")
+        
+        dashboard_data = {
+            "title": title or f"Dashboard for User {user_id}",
+            "uid": f"user-{user_id}-{uuid.uuid4().hex[:8]}",
+            "tags": ["auto-generated", f"user-{user_id}"],
+            "panels": panels or [
+                {
+                    "id": 1,
+                    "type": "graph",
+                    "title": "샘플 그래프",
+                    "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0}
+                }
+            ]
+        }
+        
+        # 태스크 결과 생성 및 저장
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="create_grafana_dashboard",
+            status=TaskStatus.PENDING,
+            result={
+                "dashboard_data": dashboard_data,
+                "folder_uid": folder_uid,  # 이 값이 None이 아니어야 함
+                "user_id": user_id
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        create_grafana_dashboard.apply_async(
+            args=(saved_result.id, dashboard_data, folder_uid),
+            task_id=saved_result.task_id
+        )
+        
+        print(f"대시보드 생성 요청: dashboard_data={dashboard_data}, folder_uid={folder_uid}")
+        return saved_result.id
+    
+    def get_dashboard(self, dashboard_uid: str) -> str:
+        """
+        대시보드 조회 태스크 요청
+        """
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="get_grafana_dashboard",
+            status=TaskStatus.PENDING,
+            result={
+                "dashboard_uid": dashboard_uid
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        get_grafana_dashboard.apply_async(
+            args=(saved_result.id, dashboard_uid),  # task_result_id를 첫 번째 인자로 전달
+            task_id=saved_result.task_id
+        )
+        
+        return saved_result.id
+    
+    def get_user_dashboards(self, user_id: str) -> str:
+        """
+        사용자 대시보드 목록 조회
+        """
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="get_grafana_folders",
+            status=TaskStatus.PENDING,
+            result={
+                "user_id": user_id
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        get_grafana_folders.apply_async(
+            args=(saved_result.id,),  # task_result_id를 첫 번째 인자로 전달
+            task_id=saved_result.task_id
+        )
+        
+        return saved_result.id
+    
+
+    """
+    그라파나 대시보드 구성 흐름
+    
+    1. 사용자 폴더 생성
+       - create_user_folder() 호출
+       - TaskResult에서 성공 여부 및 folder_uid 확인
+    
+    2. 서비스 계정 생성
+       - create_service_account() 호출
+       - TaskResult에서 성공 여부 및 service_account_id 확인
+    
+    3. 서비스 토큰 생성
+       - create_service_token() 호출 (service_account_id 필요)
+       - TaskResult에서 성공 여부 및 token 확인
+    
+    4. 폴더 권한 설정
+       - set_folder_permissions() 호출 (folder_uid, service_account_id 필요)
+       - TaskResult에서 성공 여부 확인
+    
+    5. 대시보드 생성
+       - create_dashboard() 호출 (folder_uid 필요)
+       - TaskResult에서 성공 여부 및 dashboard_uid 확인
+    
+    이전 단계의 결과가 다음 단계에 필요
+    """
