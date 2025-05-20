@@ -120,7 +120,7 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         saved_result = self.task_result_repo.save(task_result)
         
         create_grafana_service_token.apply_async(
-            args=(saved_result.id, service_account_id, token_name),  # 수정: task_result_id를 첫 번째 인자로 전달
+            args=(saved_result.id, service_account_id, token_name),  # task_result_id를 첫 번째 인자로 전달
             task_id=saved_result.task_id
         )
         

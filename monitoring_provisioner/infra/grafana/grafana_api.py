@@ -77,16 +77,14 @@ class GrafanaAPI:
     
     def set_folder_permissions(self, folder_uid: str, service_account_id: int, permission: int = 1) -> Dict[str, Any]:
         """
-        폴더 권한 설정
-        그라파나 12.0.0 버전 호환
+        폴더 권한 설정 - Grafana 12.0.0 버전용 수정
         """
         url = f"{self.base_url}/api/folders/{folder_uid}/permissions"
         
-        # 그라파나 12.0.0 버전에 맞는 형식
+        # Grafana 12 호환 형식으로
         data = {
             "items": [
-                {"role": "Viewer", "permission": 0},  # 기존 권한 제거
-                {"serviceAccountId": service_account_id, "permission": permission}
+                {"userId": service_account_id, "permission": permission}
             ]
         }
         
@@ -99,21 +97,6 @@ class GrafanaAPI:
             
             if response.status_code in [200, 201]:
                 return response.json()
-            
-            # 오류 시 대체 형식 시도
-            if response.status_code >= 400:
-                print("대체 권한 설정 형식 시도...")
-                alt_data = {
-                    "items": [
-                        {"role": "Viewer", "permission": 0},
-                        {"userId": service_account_id, "permission": permission}
-                    ]
-                }
-                alt_response = requests.post(url, json=alt_data, headers=self.headers)
-                print(f"대체 폴더 권한 설정 응답: 상태 코드={alt_response.status_code}, 응답={alt_response.text}")
-                
-                if alt_response.status_code in [200, 201]:
-                    return alt_response.json()
             
             response.raise_for_status()
             return response.json()
