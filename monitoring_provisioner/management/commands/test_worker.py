@@ -13,7 +13,7 @@ class Command(BaseCommand):
         parser.add_argument('--user-id', type=str, default="test_user_123")
         parser.add_argument('--user-name', type=str, default="Test User")
         parser.add_argument('--dashboard-title', type=str, default="Test Dashboard")
-        parser.add_argument('--action', type=str, choices=['folder', 'account', 'token', 'dashboard', 'permissions', 'all', 'sequence'], default='all')
+        parser.add_argument('--action', type=str, choices=['folder', 'account', 'token', 'dashboard', 'permissions', 'public', 'all', 'sequence'], default='all')
         parser.add_argument('--wait-for-completion', action='store_true', help='Wait for tasks to complete before proceeding')
 
     def handle(self, *args, **options):
@@ -30,7 +30,7 @@ class Command(BaseCommand):
         
         # 순차적 실행 옵션
         if action == 'sequence':
-            self.stdout.write("폴더 생성 → 서비스 계정 → 서비스 토큰 → 권한 설정 → 대시보드 순차 실행 중...")
+            self.stdout.write("폴더 생성 → 서비스 계정 → 서비스 토큰 → 권한 설정 → 대시보드 → 퍼블릭 대시보드 순차 실행 중...")
             
             # 1. 폴더 생성
             self.stdout.write("1. 폴더 생성 요청 중...")
@@ -127,31 +127,74 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.WARNING("폴더 UID를 가져올 수 없어 대시보드를 생성하지 않습니다."))
             
-            # 6. 인증된 URL 생성
-            if dashboard_uid and service_token:
+            # 6. 대시보드 공유 URL 생성 (퍼블릭 대시보드 생성 추가)
+            public_dashboard_uid = None
+            if dashboard_uid:
+                self.stdout.write("6. 퍼블릭 대시보드 생성 요청 중...")
+                public_dashboard_task_id = executor.create_public_dashboard(dashboard_uid)
+                self.stdout.write(self.style.SUCCESS(f"퍼블릭 대시보드 생성 태스크 등록 완료. Task ID: {public_dashboard_task_id}"))
+                
+                if wait_for_completion:
+                    self.wait_for_task_completion(public_dashboard_task_id)
+                    public_dashboard_uid = self.get_public_dashboard_uid_from_task(public_dashboard_task_id)
+                else:
+                    # 대시보드 생성에 시간이 필요하므로 잠시 대기
+                    time.sleep(2)
+                    public_dashboard_uid = self.get_public_dashboard_uid_from_task(public_dashboard_task_id)
+                
+                # 태스크 ID 정보 추가
+                task_ids['public_dashboard'] = public_dashboard_task_id
+                
+                # URL 생성
                 grafana_api = GrafanaAPI()
                 # base_url에서 마지막 슬래시 제거
                 base_url = grafana_api.base_url.rstrip('/')
                 
-                # Kiosk 모드와 Iframe embedding용 URL
+                # 출력할 URL 생성
+                urls = []
+                
+                # 1. 기본 대시보드 URL
                 embed_url = f"{base_url}/d/{dashboard_uid}/test-dashboard?orgId=1&kiosk&theme=light"
+                urls.append(("기본 대시보드 URL", embed_url))
                 
-                # API 토큰 URL은 다음과 같이 생성
-                auth_url = f"{base_url}/api/dashboards/uid/{dashboard_uid}"
+                # 2. 서비스 계정 토큰 API URL
+                if service_token:
+                    auth_url = f"{base_url}/api/dashboards/uid/{dashboard_uid}"
+                    urls.append(("API 접근 토큰 헤더", f"Authorization: Bearer {service_token}"))
+                    urls.append(("API 요청 URL", auth_url))
                 
+                # 3. 퍼블릭 대시보드 URL
+                if public_dashboard_uid:
+                    # 퍼블릭 대시보드 결과 가져오기
+                    public_dashboard_result = self.get_public_dashboard_result_from_task(public_dashboard_task_id)
+                    
+                    if public_dashboard_result and 'accessToken' in public_dashboard_result:
+                        # accessToken 사용
+                        public_url = f"{base_url}/public-dashboards/{public_dashboard_result['accessToken']}"
+                        urls.append(("퍼블릭 대시보드 URL (로그인 불필요)", public_url))
+                    else:
+                        # 기존 uid 방식 사용
+                        public_url = f"{base_url}/public-dashboards/{public_dashboard_uid}"
+                        urls.append(("퍼블릭 대시보드 URL (로그인 불필요)", public_url))
+                
+                # 결과 출력
                 self.stdout.write("")
                 self.stdout.write(self.style.SUCCESS("대시보드가 성공적으로 생성되었습니다!"))
                 self.stdout.write(self.style.SUCCESS(f"대시보드 UID: {dashboard_uid}"))
-                self.stdout.write(self.style.SUCCESS(f"서비스 계정 ID: {service_account_id}"))
-                self.stdout.write(self.style.SUCCESS(f"서비스 토큰: {service_token}"))
+                if service_account_id:
+                    self.stdout.write(self.style.SUCCESS(f"서비스 계정 ID: {service_account_id}"))
+                if service_token:
+                    self.stdout.write(self.style.SUCCESS(f"서비스 토큰: {service_token}"))
+                if public_dashboard_uid:
+                    self.stdout.write(self.style.SUCCESS(f"퍼블릭 대시보드 UID: {public_dashboard_uid}"))
+                
                 self.stdout.write("")
                 self.stdout.write(self.style.SUCCESS("대시보드 접근을 위한 정보:"))
-                self.stdout.write(self.style.SUCCESS("1. Iframe에 임베드하기 위한 URL:"))
-                self.stdout.write(self.style.SUCCESS(embed_url))
-                self.stdout.write(self.style.SUCCESS("2. API 접근을 위한 토큰 헤더 정보:"))
-                self.stdout.write(self.style.SUCCESS(f"Authorization: Bearer {service_token}"))
-                self.stdout.write(self.style.SUCCESS("3. API 요청 예시:"))
-                self.stdout.write(self.style.SUCCESS(f"curl -H \"Authorization: Bearer {service_token}\" {auth_url}"))
+                
+                for i, (title, url) in enumerate(urls, 1):
+                    self.stdout.write(self.style.SUCCESS(f"{i}. {title}:"))
+                    self.stdout.write(self.style.SUCCESS(url))
+                    self.stdout.write("")
             
             # 태스크 ID 정보 추가
             task_ids['folder'] = folder_task_id
@@ -208,6 +251,27 @@ class Command(BaseCommand):
             task_id = executor.set_folder_permissions(folder_uid, service_account_id)
             task_ids['permissions'] = task_id
             self.stdout.write(self.style.SUCCESS(f"폴더 권한 설정 태스크 등록 완료. Task ID: {task_id}"))
+        
+        elif action in ['public']:
+            self.stdout.write("퍼블릭 대시보드 생성 요청 중...")
+            # 대시보드 UID 찾기
+            dashboard_uid = self.find_dashboard_uid_for_user(user_id)
+            if not dashboard_uid:
+                self.stdout.write(self.style.ERROR(f"사용자 {user_id}의 대시보드를 찾을 수 없습니다."))
+                return
+            
+            self.stdout.write(f"대시보드 UID: {dashboard_uid}")
+            task_id = executor.create_public_dashboard(dashboard_uid)
+            task_ids['public'] = task_id
+            self.stdout.write(self.style.SUCCESS(f"퍼블릭 대시보드 생성 태스크 등록 완료. Task ID: {task_id}"))
+            
+            if wait_for_completion:
+                self.wait_for_task_completion(task_id)
+                public_uid = self.get_public_dashboard_uid_from_task(task_id)
+                if public_uid:
+                    grafana_api = GrafanaAPI()
+                    public_url = f"{grafana_api.base_url.rstrip('/')}/public-dashboards/{public_uid}"
+                    self.stdout.write(self.style.SUCCESS(f"퍼블릭 대시보드 URL: {public_url}"))
         
         elif action in ['dashboard', 'all']:
             self.stdout.write("대시보드 생성 요청 중...")
@@ -299,6 +363,31 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"대시보드 UID 추출 실패: {str(e)}"))
         return None
     
+    def get_public_dashboard_uid_from_task(self, task_id):
+        """태스크 결과에서 퍼블릭 대시보드 UID 추출"""
+        try:
+            task = TaskResultModel.objects.get(id=task_id)
+            if task.status == TaskStatus.SUCCESS and task.result:
+                result = task.result
+                if isinstance(result, dict) and 'uid' in result:
+                    return result['uid']
+                # 다른 형식의 응답 처리
+                if isinstance(result, dict) and 'publicDashboard' in result and 'uid' in result['publicDashboard']:
+                    return result['publicDashboard']['uid']
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"퍼블릭 대시보드 UID 추출 실패: {str(e)}"))
+        return None
+    
+    def get_public_dashboard_result_from_task(self, task_id):
+        """태스크 결과에서 퍼블릭 대시보드 전체 결과 가져오기"""
+        try:
+            task = TaskResultModel.objects.get(id=task_id)
+            if task.status == TaskStatus.SUCCESS and task.result:
+                return task.result
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"퍼블릭 대시보드 결과 추출 실패: {str(e)}"))
+        return None
+    
     def find_folder_uid_for_user(self, user_id):
         """사용자의 폴더 UID 검색"""
         try:
@@ -348,5 +437,31 @@ class Command(BaseCommand):
                     
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"서비스 계정 ID 검색 실패: {str(e)}"))
+        
+        return None
+    
+    def find_dashboard_uid_for_user(self, user_id):
+        """사용자의 대시보드 UID 검색"""
+        try:
+            # 최근 대시보드 생성 태스크 조회
+            recent_dashboard_task = TaskResultModel.objects.filter(
+                task_name="create_grafana_dashboard",
+                result__contains=user_id,
+                status=TaskStatus.SUCCESS
+            ).order_by('-date_done').first()
+            
+            if recent_dashboard_task and recent_dashboard_task.result:
+                result_data = recent_dashboard_task.result
+                if isinstance(result_data, dict) and 'uid' in result_data:
+                    return result_data['uid']
+            
+            # DB에서 찾지 못한 경우 그라파나 API 사용
+            from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
+            api = GrafanaAPI()
+            # 대시보드 검색 로직 (API 제공 시)
+            # 현재 API에서는 대시보드 목록을 가져오는 기능이 구현되어 있지 않음
+        
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"대시보드 UID 검색 실패: {str(e)}"))
         
         return None

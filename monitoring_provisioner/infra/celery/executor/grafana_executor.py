@@ -8,7 +8,8 @@ from monitoring_provisioner.infra.celery.tasks.grafana_tasks import (
     set_grafana_folder_permissions,
     create_grafana_dashboard,
     get_grafana_dashboard,
-    get_grafana_folders
+    get_grafana_folders,
+    create_grafana_public_dashboard  
 )
 from monitoring_provisioner.infra.repository.task_result_repo import TaskResultRepository
 from monitoring_provisioner.service.i_executors.monitoring_dashboard_executor import MonitoringDashboardExecutor
@@ -308,6 +309,36 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         
         return saved_result.id
     
+    def create_public_dashboard(self, dashboard_uid: str) -> str:
+        """
+        퍼블릭 대시보드 생성 태스크 요청
+        """
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="create_grafana_public_dashboard",
+            status=TaskStatus.PENDING,
+            result={
+                "dashboard_uid": dashboard_uid
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        create_grafana_public_dashboard.apply_async(
+            args=(saved_result.id, dashboard_uid),
+            task_id=saved_result.task_id
+        )
+        
+        return saved_result.id
 
     """
     그라파나 대시보드 구성 흐름

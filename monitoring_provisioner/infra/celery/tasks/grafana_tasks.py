@@ -204,3 +204,25 @@ def get_grafana_folders(self, task_result_id):
     update_task_success(task_result_id, result)
     
     return result
+
+@locking_task(max_retries=3, default_retry_delay=5)
+def create_grafana_public_dashboard(self, task_result_id, dashboard_uid):
+    """
+    그라파나 퍼블릭 대시보드 생성 태스크
+    """
+    print(f"태스크 {task_result_id} 실행 중...")
+    
+    try:
+        task_result = TaskResultModel.objects.get(id=task_result_id)
+        task_data = task_result.result or {}
+        print(f"태스크 데이터: {task_data}")
+    except TaskResultModel.DoesNotExist:
+        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
+    
+    grafana_api = GrafanaAPI()
+    result = grafana_api.create_public_dashboard(dashboard_uid)
+    
+    # 성공 시 상태 업데이트
+    update_task_success(task_result_id, result)
+    
+    return result
