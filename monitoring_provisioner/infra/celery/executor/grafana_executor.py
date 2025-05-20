@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional, Dict, Any
 from django.utils import timezone
 from monitoring_provisioner.domain.task_result import TaskResult, TaskStatus
 from monitoring_provisioner.infra.celery.tasks.grafana_tasks import (
@@ -9,7 +10,9 @@ from monitoring_provisioner.infra.celery.tasks.grafana_tasks import (
     create_grafana_dashboard,
     get_grafana_dashboard,
     get_grafana_folders,
-    create_grafana_public_dashboard  
+    create_grafana_public_dashboard,
+    create_grafana_logs_dashboard
+    
 )
 from monitoring_provisioner.infra.repository.task_result_repo import TaskResultRepository
 from monitoring_provisioner.service.i_executors.monitoring_dashboard_executor import MonitoringDashboardExecutor
@@ -339,6 +342,80 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         )
         
         return saved_result.id
+    
+    def create_logs_dashboard(self, user_id: str, user_name: str, folder_uid: str = None, 
+                         data_source_uid: str = "Elasticsearch") -> str:
+        """
+        로그 대시보드 생성 태스크 요청
+        """
+        id = str(uuid.uuid4())
+        task_id = str(uuid.uuid4())
+        now = timezone.now()
+        
+        # folder_uid가 제공되지 않은 경우 검색
+        if folder_uid is None:
+            folder_uid = self._find_folder_uid_for_user(user_id)
+        
+        # 태스크 결과 생성 및 저장
+        task_result = TaskResult(
+            id=id,
+            task_id=task_id,
+            task_name="create_grafana_logs_dashboard",
+            status=TaskStatus.PENDING,
+            result={
+                "user_id": user_id,
+                "user_name": user_name,
+                "folder_uid": folder_uid,
+                "data_source_uid": data_source_uid
+            },
+            date_created=now.isoformat(),
+            date_started=None,
+            date_done=None,
+            traceback=None,
+            retries=0,
+        )
+        saved_result = self.task_result_repo.save(task_result)
+        
+        # Celery 태스크 비동기 실행
+        create_grafana_logs_dashboard.apply_async(
+            args=(saved_result.id, user_id, user_name, folder_uid, data_source_uid),
+            task_id=saved_result.task_id
+        )
+        
+        print(f"로그 대시보드 생성 요청: user_id={user_id}, folder_uid={folder_uid}")
+        return saved_result.id
+
+    def _find_folder_uid_for_user(self, user_id: str) -> Optional[str]:
+        """
+        사용자 폴더 UID 검색 (내부 메서드)
+        """
+        try:
+            from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
+            # 해당 사용자의 가장 최근 폴더 생성 태스크 조회
+            recent_folder_task = TaskResultModel.objects.filter(
+                task_name="create_grafana_folder",
+                result__contains=user_id,
+                status=TaskStatus.SUCCESS
+            ).order_by('-date_done').first()
+            
+            if recent_folder_task and recent_folder_task.result:
+                result_data = recent_folder_task.result
+                if isinstance(result_data, dict) and 'uid' in result_data:
+                    return result_data['uid']
+            
+            # DB에서 찾지 못한 경우 Grafana API 사용
+            from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
+            api = GrafanaAPI()
+            folders = api.get_folders()
+            
+            folder_pattern = f"User_{user_id}_"
+            for folder in folders:
+                if folder_pattern in folder.get('title', ''):
+                    return folder.get('uid')
+        except Exception as e:
+            print(f"폴더 UID 검색 실패: {str(e)}")
+        
+        return None
 
     """
     그라파나 대시보드 구성 흐름

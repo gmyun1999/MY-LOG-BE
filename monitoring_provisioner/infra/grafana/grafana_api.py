@@ -215,3 +215,621 @@ class GrafanaAPI:
         
         # 기본값 또는 오류 시
         return None
+    
+
+    def create_logs_dashboard(self, user_id: str, user_name: str, folder_uid: str = None, 
+                            data_source_uid: str = "Elasticsearch") -> Dict[str, Any]:
+        """
+        Elasticsearch 로그 대시보드 생성
+        사용자별 로그 필터링을 위한 대시보드를 생성
+        """
+        # 대시보드 UID 생성 (사용자 ID 기반)
+        dashboard_uid = f"logs-dashboard-{user_id}"
+        
+        # 대시보드 템플릿 기본 구조
+        dashboard_data = {
+            "annotations": {
+                "list": [
+                    {
+                        "builtIn": 1,
+                        "datasource": {
+                            "type": "grafana",
+                            "uid": "-- Grafana --"
+                        },
+                        "enable": True,
+                        "hide": True,
+                        "iconColor": "rgba(0, 211, 255, 1)",
+                        "name": "Annotations & Alerts",
+                        "type": "dashboard"
+                    }
+                ]
+            },
+            "editable": True,
+            "fiscalYearStartMonth": 0,
+            "graphTooltip": 0,
+            "links": [],
+            "panels": [
+                # 시계열 차트 패널
+                {
+                    "datasource": {
+                        "type": "elasticsearch",
+                        "uid": data_source_uid
+                    },
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "palette-classic"
+                            },
+                            "custom": {
+                                "axisBorderShow": False,
+                                "axisCenteredZero": False,
+                                "axisColorMode": "text",
+                                "axisLabel": "",
+                                "axisPlacement": "auto",
+                                "barAlignment": 0,
+                                "barWidthFactor": 0.6,
+                                "drawStyle": "line",
+                                "fillOpacity": 10,
+                                "gradientMode": "none",
+                                "hideFrom": {
+                                    "legend": False,
+                                    "tooltip": False,
+                                    "viz": False
+                                },
+                                "insertNulls": False,
+                                "lineInterpolation": "linear",
+                                "lineWidth": 1,
+                                "pointSize": 5,
+                                "scaleDistribution": {
+                                    "type": "linear"
+                                },
+                                "showPoints": "never",
+                                "spanNulls": False,
+                                "stacking": {
+                                    "group": "A",
+                                    "mode": "normal"
+                                },
+                                "thresholdsStyle": {
+                                    "mode": "off"
+                                }
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green"
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            },
+                            "unit": "short"
+                        },
+                        "overrides": [
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "INFO"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "green",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "WARN"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "orange",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "ERROR"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "red",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "DEBUG"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "purple",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "WARNING"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "yellow",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "gridPos": {
+                        "h": 8,
+                        "w": 24,
+                        "x": 0,
+                        "y": 0
+                    },
+                    "id": 3,
+                    "options": {
+                        "legend": {
+                            "calcs": [],
+                            "displayMode": "list",
+                            "placement": "bottom",
+                            "showLegend": True
+                        },
+                        "tooltip": {
+                            "hideZeros": False,
+                            "mode": "single",
+                            "sort": "none"
+                        }
+                    },
+                    "pluginVersion": "12.0.0",
+                    "targets": [
+                        {
+                            "bucketAggs": [
+                                {
+                                    "field": "@timestamp",
+                                    "id": "2",
+                                    "settings": {
+                                        "interval": "auto",
+                                        "min_doc_count": 0,
+                                        "trimEdges": 0
+                                    },
+                                    "type": "date_histogram"
+                                }
+                            ],
+                            "metrics": [
+                                {
+                                    "id": "1",
+                                    "type": "count"
+                                }
+                            ],
+                            # 중요: 사용자별 필터링 쿼리 추가
+                            "query": f"level: $level AND user_id: {user_id}",
+                            "refId": "A",
+                            "timeField": "@timestamp"
+                        }
+                    ],
+                    "title": "로그 발생 추이",
+                    "type": "timeseries"
+                },
+                # 테이블 패널 (로그 목록)
+                {
+                    "datasource": {
+                        "type": "elasticsearch",
+                        "uid": data_source_uid
+                    },
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "mode": "thresholds"
+                            },
+                            "custom": {
+                                "align": "auto",
+                                "cellOptions": {
+                                    "type": "auto"
+                                },
+                                "filterable": True,
+                                "inspect": True
+                            },
+                            "mappings": [],
+                            "thresholds": {
+                                "mode": "absolute",
+                                "steps": [
+                                    {
+                                        "color": "green"
+                                    },
+                                    {
+                                        "color": "red",
+                                        "value": 80
+                                    }
+                                ]
+                            }
+                        },
+                        "overrides": [
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "level"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "custom.cellOptions",
+                                        "value": {
+                                            "type": "color-text"
+                                        }
+                                    },
+                                    {
+                                        "id": "mappings",
+                                        "value": [
+                                            {
+                                                "options": {
+                                                    "DEBUG": {
+                                                        "color": "purple",
+                                                        "index": 3,
+                                                        "text": "DEBUG"
+                                                    },
+                                                    "ERROR": {
+                                                        "color": "red",
+                                                        "index": 2,
+                                                        "text": "ERROR"
+                                                    },
+                                                    "INFO": {
+                                                        "color": "green",
+                                                        "index": 0,
+                                                        "text": "INFO"
+                                                    },
+                                                    "WARN": {
+                                                        "color": "orange",
+                                                        "index": 1,
+                                                        "text": "WARN"
+                                                    },
+                                                    "WARNING": {
+                                                        "color": "yellow",
+                                                        "index": 4,
+                                                        "text": "WARNING"
+                                                    }
+                                                },
+                                                "type": "value"
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "id": "custom.filterable",
+                                        "value": True
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "@timestamp"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "custom.width",
+                                        "value": 200
+                                    },
+                                    {
+                                        "id": "custom.filterable",
+                                        "value": True
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "message"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "custom.width",
+                                        "value": 400
+                                    },
+                                    {
+                                        "id": "custom.filterable",
+                                        "value": True
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "gridPos": {
+                        "h": 14,
+                        "w": 24,
+                        "x": 0,
+                        "y": 8
+                    },
+                    "id": 4,
+                    "options": {
+                        "cellHeight": "sm",
+                        "footer": {
+                            "countRows": False,
+                            "enablePagination": True,
+                            "fields": "",
+                            "reducer": ["sum"],
+                            "show": False
+                        },
+                        "showHeader": True,
+                        "sortBy": [
+                            {
+                                "desc": False,
+                                "displayName": "@timestamp"
+                            }
+                        ]
+                    },
+                    "pluginVersion": "12.0.0",
+                    "targets": [
+                        {
+                            "bucketAggs": [],
+                            "metrics": [
+                                {
+                                    "id": "1",
+                                    "type": "logs"
+                                }
+                            ],
+                            # 중요: 사용자별 필터링 쿼리 추가
+                            "query": f"level: $level AND user_id: {user_id}",
+                            "refId": "A",
+                            "timeField": "@timestamp"
+                        }
+                    ],
+                    "title": "로그 목록",
+                    "transformations": [
+                        {
+                            "id": "organize",
+                            "options": {
+                                "excludeByName": {
+                                    "_id": True,
+                                    "_index": True,
+                                    "_source": True,
+                                    "_type": True,
+                                    "highlight": True,
+                                    "host": True,
+                                    "pid": True,
+                                    "sort": True,
+                                    "user_field": True
+                                },
+                                "indexByName": {
+                                    "@timestamp": 0,
+                                    "level": 1,
+                                    "message": 2,
+                                    # "사용자_커스텀_필드1": 3,
+                                    # "사용자_커스텀_필드2": 4
+                                },
+                                "renameByName": {}
+                            }
+                        }
+                    ],
+                    "type": "table"
+                },
+                # 파이 차트 패널 (로그 레벨 분포)
+                {
+                    "datasource": {
+                        "type": "elasticsearch",
+                        "uid": data_source_uid
+                    },
+                    "fieldConfig": {
+                        "defaults": {
+                            "color": {
+                                "fixedColor": "green",
+                                "mode": "fixed"
+                            },
+                            "custom": {
+                                "hideFrom": {
+                                    "legend": False,
+                                    "tooltip": False,
+                                    "viz": False
+                                }
+                            },
+                            "mappings": []
+                        },
+                        "overrides": [
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "INFO"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "green",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "WARN"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "orange",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "ERROR"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "red",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "DEBUG"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "purple",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            },
+                            {
+                                "matcher": {
+                                    "id": "byName",
+                                    "options": "WARNING"
+                                },
+                                "properties": [
+                                    {
+                                        "id": "color",
+                                        "value": {
+                                            "fixedColor": "yellow",
+                                            "mode": "fixed"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    "gridPos": {
+                        "h": 9,
+                        "w": 24,
+                        "x": 0,
+                        "y": 22
+                    },
+                    "id": 6,
+                    "options": {
+                        "displayLabels": ["name", "value", "percent"],
+                        "legend": {
+                            "displayMode": "table",
+                            "placement": "right",
+                            "showLegend": True,
+                            "values": ["value", "percent"]
+                        },
+                        "pieType": "pie",
+                        "reduceOptions": {
+                            "calcs": ["lastNotNull"],
+                            "fields": "",
+                            "values": True
+                        },
+                        "tooltip": {
+                            "hideZeros": False,
+                            "mode": "single",
+                            "sort": "none"
+                        }
+                    },
+                    "pluginVersion": "12.0.0",
+                    "targets": [
+                        {
+                            "bucketAggs": [
+                                {
+                                    "field": "level",
+                                    "id": "2",
+                                    "settings": {
+                                        "min_doc_count": 1,
+                                        "order": "desc",
+                                        "orderBy": "_count",
+                                        "size": "10"
+                                    },
+                                    "type": "terms"
+                                }
+                            ],
+                            "metrics": [
+                                {
+                                    "id": "1",
+                                    "type": "count"
+                                }
+                            ],
+                            # 중요: 사용자별 필터링 쿼리 추가
+                            "query": f"level: $level AND user_id: {user_id}",
+                            "refId": "A",
+                            "timeField": "@timestamp"
+                        }
+                    ],
+                    "title": "로그 레벨 분포",
+                    "type": "piechart"
+                }
+            ],
+            "refresh": "5s",
+            "schemaVersion": 41,
+            "tags": ["logs", "elasticsearch", f"user-{user_id}"],
+            "templating": {
+                "list": [
+                    {
+                        "current": {
+                            "text": "All",
+                            "value": ["$__all"]
+                        },
+                        "datasource": {
+                            "type": "elasticsearch",
+                            "uid": data_source_uid
+                        },
+                        "definition": "{\"find\": \"terms\", \"field\": \"level\"}",
+                        "includeAll": True,
+                        "multi": True,
+                        "name": "level",
+                        "options": [],
+                        "query": "{\"find\": \"terms\", \"field\": \"level\"}",
+                        "refresh": 1,
+                        "regex": "",
+                        "type": "query"
+                    },
+                    {
+                        "datasource": {
+                            "type": "elasticsearch",
+                            "uid": data_source_uid
+                        },
+                        "filters": [],
+                        "label": "Filters",
+                        "name": "Filters",
+                        "type": "adhoc"
+                    }
+                ]
+            },
+            "time": {
+                "from": "now-6h",
+                "to": "now"
+            },
+            "timepicker": {},
+            "timezone": "",
+            "title": f"로그 대시보드 - {user_name}",
+            "uid": dashboard_uid,
+            "version": 1
+        }
+        
+        # 대시보드 생성 API 호출
+        return self.create_dashboard(dashboard_data, folder_uid)
