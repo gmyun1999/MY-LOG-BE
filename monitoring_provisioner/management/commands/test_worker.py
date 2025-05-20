@@ -132,11 +132,26 @@ class Command(BaseCommand):
                 grafana_api = GrafanaAPI()
                 # base_url에서 마지막 슬래시 제거
                 base_url = grafana_api.base_url.rstrip('/')
-                authenticated_url = f"{base_url}/d/{dashboard_uid}/test-dashboard?orgId=1&auth_token={service_token}"
+                
+                # Kiosk 모드와 Iframe embedding용 URL
+                embed_url = f"{base_url}/d/{dashboard_uid}/test-dashboard?orgId=1&kiosk&theme=light"
+                
+                # API 토큰 URL은 다음과 같이 생성
+                auth_url = f"{base_url}/api/dashboards/uid/{dashboard_uid}"
+                
                 self.stdout.write("")
-                self.stdout.write(self.style.SUCCESS("접근 가능한 URL이 생성되었습니다:"))
-                self.stdout.write(self.style.SUCCESS(authenticated_url))
-                self.stdout.write(self.style.SUCCESS("이 URL을 사용하면 로그인 없이 대시보드에 접근할 수 있습니다."))
+                self.stdout.write(self.style.SUCCESS("대시보드가 성공적으로 생성되었습니다!"))
+                self.stdout.write(self.style.SUCCESS(f"대시보드 UID: {dashboard_uid}"))
+                self.stdout.write(self.style.SUCCESS(f"서비스 계정 ID: {service_account_id}"))
+                self.stdout.write(self.style.SUCCESS(f"서비스 토큰: {service_token}"))
+                self.stdout.write("")
+                self.stdout.write(self.style.SUCCESS("대시보드 접근을 위한 정보:"))
+                self.stdout.write(self.style.SUCCESS("1. Iframe에 임베드하기 위한 URL:"))
+                self.stdout.write(self.style.SUCCESS(embed_url))
+                self.stdout.write(self.style.SUCCESS("2. API 접근을 위한 토큰 헤더 정보:"))
+                self.stdout.write(self.style.SUCCESS(f"Authorization: Bearer {service_token}"))
+                self.stdout.write(self.style.SUCCESS("3. API 요청 예시:"))
+                self.stdout.write(self.style.SUCCESS(f"curl -H \"Authorization: Bearer {service_token}\" {auth_url}"))
             
             # 태스크 ID 정보 추가
             task_ids['folder'] = folder_task_id
