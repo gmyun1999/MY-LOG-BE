@@ -46,3 +46,11 @@ pytest-django = "^4.11.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.12"
+check_untyped_defs = true
+ignore_missing_imports = true
+plugins = [
+  "pydantic.mypy"
+]

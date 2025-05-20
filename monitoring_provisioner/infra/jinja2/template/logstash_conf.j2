@@ -1,0 +1,27 @@
+input {
+  beats {
+    port => {{ beats_port }}
+  }
+}
+
+filter {
+  date {
+    match => ["@timestamp", "ISO8601"]
+    target => "@timestamp"
+  }
+}
+
+output {
+  rabbitmq {
+    host          => "{{ mq_host }}"
+    port          => {{ mq_port }}
+    user          => "{{ mq_user }}"
+    password      => "{{ mq_password }}"
+    vhost         => "{{ mq_vhost }}"
+    exchange      => "{{ mq_exchange }}"
+    exchange_type => "{{ mq_exchange_type }}"
+    key           => "{{ mq_routing_key }}"
+    persistent    => {{ mq_persistent | lower }}
+    heartbeat     => {{ mq_heartbeat }}
+  }
+}

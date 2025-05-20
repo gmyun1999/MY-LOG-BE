@@ -1,0 +1,58 @@
+
+# ============================== Filebeat inputs ===============================
+filebeat.inputs:
+  - type: filestream
+    id: proj1
+    enabled: true
+    paths:
+      - /var/log/app.log
+    parsers:
+      - multiline:
+          type: pattern
+          pattern: '^(INFO|WARN|ERROR)'
+          negate: true
+          match: after
+
+# ======================= Modules (사용 안 함) ==============================
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+# ================================= Processors =================================
+processors:
+  - add_host_metadata: { when.not.contains.tags: forwarded }
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+  - dissect:
+      tokenizer: "%{level->} <%{timestamp->}> | %{module->} || [%{msg_detail->}]"
+      field: "message"
+      target_prefix: ""
+
+  
+  - drop_event:
+      when:
+        equals:
+          level: "ERROR"
+  - drop_event:
+      when:
+        equals:
+          level: "WARN"
+
+  
+  - add_tags:
+      when:
+        not:
+          has_fields: []
+      tags: ['_parsing_failed']
+
+  
+
+# ================================= Outputs ===================================
+output.logstash:
+  hosts: ['127.0.0.1:5044']
+  ssl.enabled: false
+
+# ================================== Logging ===================================
+logging.level: warning
+logging.to_files: true
