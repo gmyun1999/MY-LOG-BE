@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('monitoring_provisioner', '0001_initial'),
+        ("monitoring_provisioner", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='taskresultmodel',
-            name='date_started',
+            model_name="taskresultmodel",
+            name="date_started",
             field=models.DateTimeField(blank=True, null=True),
         ),
     ]

@@ -9,5 +9,7 @@ class InvalidPagingParameterException(PagingException):
 
     code = "INVALID_PAGING_PARAMETER"
 
-    def __init__(self, message: str = "유효하지 않은 페이징 파라미터가 전달되었습니다."):
+    def __init__(
+        self, message: str = "유효하지 않은 페이징 파라미터가 전달되었습니다."
+    ):
         super().__init__(message)

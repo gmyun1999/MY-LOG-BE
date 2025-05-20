@@ -1,5 +1,5 @@
-
 from monitoring_provisioner.infra.celery.tasks.utils import locking_task
+
 
 @locking_task(max_retries=3, default_retry_delay=2)
 def send_dashboard_creation_request(self, task_result_id: str):

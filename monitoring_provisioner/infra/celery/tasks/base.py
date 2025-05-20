@@ -1,13 +1,16 @@
 import uuid
+
 from celery import Task
 from celery.exceptions import Ignore
 from django.utils import timezone
+
 from monitoring_provisioner.domain.task_result import TaskStatus
 from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
 from monitoring_provisioner.infra.redis.redis_client import redis_client
 
 LOCK_EXPIRE = 10
 PROC_EXPIRE = 60 * 60 * 24
+
 
 class LockingTask(Task):
     abstract = True
@@ -39,13 +42,13 @@ class LockingTask(Task):
                 status=TaskStatus.SUCCESS,
                 result=result,
                 retries=self.request.retries,
-                date_done=timezone.now()
+                date_done=timezone.now(),
             )
             return result
 
         except Ignore:
             raise
-        
+
         except Exception as exc:
             raise self.retry(exc=exc)
 

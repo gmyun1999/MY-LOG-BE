@@ -14,7 +14,7 @@ class UserRepo(IUserRepo):
         if filter.user_id:
             user = user.filter(id=filter.user_id)
 
-        user = user.first()  
+        user = user.first()
 
         if not user:
             return None

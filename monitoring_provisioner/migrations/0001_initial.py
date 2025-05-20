@@ -7,25 +7,41 @@ class Migration(migrations.Migration):
 
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='TaskResultModel',
+            name="TaskResultModel",
             fields=[
-                ('id', models.CharField(editable=False, max_length=36, primary_key=True, serialize=False)),
-                ('task_id', models.CharField(max_length=36, unique=True)),
-                ('task_name', models.CharField(max_length=255)),
-                ('status', models.CharField(choices=[('PENDING', 'PENDING'), ('STARTED', 'STARTED'), ('SUCCESS', 'SUCCESS'), ('FAILURE', 'FAILURE')], default='PENDING', max_length=16)),
-                ('result', models.JSONField(blank=True, null=True)),
-                ('date_created', models.DateTimeField(auto_now_add=True)),
-                ('date_done', models.DateTimeField(blank=True, null=True)),
-                ('traceback', models.TextField(blank=True, null=True)),
-                ('retries', models.IntegerField(default=0)),
+                (
+                    "id",
+                    models.CharField(
+                        editable=False, max_length=36, primary_key=True, serialize=False
+                    ),
+                ),
+                ("task_id", models.CharField(max_length=36, unique=True)),
+                ("task_name", models.CharField(max_length=255)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("PENDING", "PENDING"),
+                            ("STARTED", "STARTED"),
+                            ("SUCCESS", "SUCCESS"),
+                            ("FAILURE", "FAILURE"),
+                        ],
+                        default="PENDING",
+                        max_length=16,
+                    ),
+                ),
+                ("result", models.JSONField(blank=True, null=True)),
+                ("date_created", models.DateTimeField(auto_now_add=True)),
+                ("date_done", models.DateTimeField(blank=True, null=True)),
+                ("traceback", models.TextField(blank=True, null=True)),
+                ("retries", models.IntegerField(default=0)),
             ],
             options={
-                'db_table': 'task_result_model',
+                "db_table": "task_result_model",
             },
         ),
     ]

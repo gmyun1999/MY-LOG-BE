@@ -1,5 +1,7 @@
-from pydantic import BaseModel
 import base64
+
+from pydantic import BaseModel
+
 
 class RenderedConfigFile(BaseModel):
     """
@@ -7,6 +9,7 @@ class RenderedConfigFile(BaseModel):
     - filename: 저장 또는 업로드 시 사용할 파일명
     - content: 파일의 바이너리 컨텐츠
     """
+
     filename: str
     content: bytes
 

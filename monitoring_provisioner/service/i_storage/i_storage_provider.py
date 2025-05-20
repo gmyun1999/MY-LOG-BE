@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
 
+
 class IAgentStorageProvider(ABC):
     @abstractmethod
     def upload(
-        self,
-        data: bytes,
-        key: str,
-        content_type: str = 'application/octet-stream'
+        self, data: bytes, key: str, content_type: str = "application/octet-stream"
     ) -> str:
         """
         지정된 키에 데이터를 업로드하고, 외부에서 접근 가능한 URL을 반환한다.

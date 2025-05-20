@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from django.http import HttpRequest
 from pydantic import BaseModel, Field
 from rest_framework import status
@@ -10,7 +11,6 @@ from user.interface.validator.user_token_validator import validate_token
 
 class MonitoringProvisionView(APIView):
     @dataclass
-    
     class UserMonitoringSetting(BaseModel):
         pass
 
@@ -20,6 +20,7 @@ class MonitoringProvisionView(APIView):
     """
     모니터링 프로젝트 생성
     """
+
     @validate_token()
     @validate_body(UserMonitoringSetting)
     def post(self, request: HttpRequest, body: UserMonitoringSetting):

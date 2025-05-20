@@ -2,11 +2,14 @@
 
 import os
 from datetime import datetime
+
 from django.core.management.base import BaseCommand
+
 from monitoring_provisioner.domain.log_agent.log_router import LogRouterConfigContext
 from monitoring_provisioner.infra.beats.file_beats import FileBeats
 
 OUTPUT_DIR = os.path.join(os.getcwd(), "router_output")
+
 
 class Command(BaseCommand):
     help = "create_log_router_config() 테스트용 설정파일 생성"
@@ -27,7 +30,7 @@ class Command(BaseCommand):
             mq_exchange_type="direct",
             mq_routing_key="logs_1",
             mq_persistent=True,
-            mq_heartbeat=30
+            mq_heartbeat=30,
         )
 
         config_file = provider.create_log_router_config(context)

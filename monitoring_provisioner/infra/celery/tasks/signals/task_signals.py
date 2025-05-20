@@ -1,9 +1,10 @@
-from django.utils import timezone
-from celery.signals import task_prerun, task_failure
 from celery.exceptions import Ignore
+from celery.signals import task_failure, task_prerun
+from django.utils import timezone
 
-from monitoring_provisioner.domain.task_result import  TaskStatus
-from monitoring_provisioner.infra.models.task_result_model import TaskResultModel   
+from monitoring_provisioner.domain.task_result import TaskStatus
+from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
+
 
 @task_prerun.connect
 def pre_task_handler(sender=None, task_id=None, task=None, args=None, **kwargs):
@@ -38,7 +39,7 @@ def pre_task_handler(sender=None, task_id=None, task=None, args=None, **kwargs):
         tr.status = TaskStatus.STARTED
         tr.date_done = None
         tr.date_started = timezone.now()
-        tr.save(update_fields=['status', 'date_started', 'date_done'])
+        tr.save(update_fields=["status", "date_started", "date_done"])
         print("tr.status:", tr.status)
         return
 
@@ -48,10 +49,16 @@ def pre_task_handler(sender=None, task_id=None, task=None, args=None, **kwargs):
         return
 
 
-@task_failure.connect # task에서의 에러만 처리 (signal에서의 에러는 처리 안함)
+@task_failure.connect  # task에서의 에러만 처리 (signal에서의 에러는 처리 안함)
 def mark_failure(
-    sender=None, task_id=None, args=None, kwargs=None,
-    exception=None, traceback=None, einfo=None, **_kwargs
+    sender=None,
+    task_id=None,
+    args=None,
+    kwargs=None,
+    exception=None,
+    traceback=None,
+    einfo=None,
+    **_kwargs,
 ):
     task_result_id = args[0]
     retries = getattr(sender.request, "retries", 0)

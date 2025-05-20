@@ -1,11 +1,13 @@
 from enum import StrEnum
+
 from pydantic import BaseModel, model_validator
 
 
 class PlatformType(StrEnum):
     WINDOWS = "windows"
     LINUX = "linux"
-    
+
+
 class AgentProvisioningContext(BaseModel):
     base_static_url: str
     collector_config_url: str

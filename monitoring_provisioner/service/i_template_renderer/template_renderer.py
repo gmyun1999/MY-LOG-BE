@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+
 class ITemplateRenderer(ABC):
     @abstractmethod
     def render(self, template_name: str, context: dict) -> str:

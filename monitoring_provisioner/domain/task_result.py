@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
+
 from common.domain import Domain
 
 
@@ -10,21 +11,23 @@ class TaskStatus(StrEnum):
     SUCCESS = "SUCCESS"
     FAILURE = "FAILURE"
 
+
 @dataclass
 class TaskResult(Domain):
     """
     TaskResult 도메인 객체
     """
-    FIELD_ID           = "id"
-    FIELD_TASK_ID      = "task_id"
-    FIELD_TASK_NAME    = "task_name"
-    FIELD_STATUS       = "status"
-    FIELD_RESULT       = "result"
+
+    FIELD_ID = "id"
+    FIELD_TASK_ID = "task_id"
+    FIELD_TASK_NAME = "task_name"
+    FIELD_STATUS = "status"
+    FIELD_RESULT = "result"
     FIELD_DATE_CREATED = "date_created"
     FIELD_DATE_STARTED = "date_started"
-    FIELD_DATE_DONE    = "date_done"
-    FIELD_TRACEBACK    = "traceback"
-    FIELD_RETRIES      = "retries"
+    FIELD_DATE_DONE = "date_done"
+    FIELD_TRACEBACK = "traceback"
+    FIELD_RETRIES = "retries"
 
     id: str
     task_id: str

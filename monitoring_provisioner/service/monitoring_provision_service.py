@@ -1,24 +1,34 @@
 import time
 
-from monitoring_provisioner.domain.log_agent.agent_provision_context import AgentProvisioningContext, PlatformType
-from monitoring_provisioner.domain.log_agent.log_collector import LogCollectorConfigContext
+from monitoring_provisioner.domain.log_agent.agent_provision_context import (
+    AgentProvisioningContext,
+    PlatformType,
+)
+from monitoring_provisioner.domain.log_agent.log_collector import (
+    LogCollectorConfigContext,
+)
 from monitoring_provisioner.domain.log_agent.log_router import LogRouterConfigContext
 from monitoring_provisioner.domain.log_agent.rendered_config import RenderedConfigFile
 from monitoring_provisioner.infra.beats.file_beats import FileBeats
 from monitoring_provisioner.infra.s3.s3_agent_storage import S3AgentStorageProvider
-from monitoring_provisioner.service.i_log_agent.i_log_agent_provider import ILogAgentProvider
-from monitoring_provisioner.service.i_storage.i_storage_provider import IAgentStorageProvider
+from monitoring_provisioner.service.i_log_agent.i_log_agent_provider import (
+    ILogAgentProvider,
+)
+from monitoring_provisioner.service.i_storage.i_storage_provider import (
+    IAgentStorageProvider,
+)
+
 
 class MonitoringProvisionService:
     def __init__(self):
         # TODO: DI 적용 예정
         self.log_agent_provider: ILogAgentProvider = FileBeats()
-        self.storage_provider: IAgentStorageProvider    = S3AgentStorageProvider()
+        self.storage_provider: IAgentStorageProvider = S3AgentStorageProvider()
 
     def create_log_agent_config(
         self,
         collector_context: LogCollectorConfigContext,
-        router_context: LogRouterConfigContext
+        router_context: LogRouterConfigContext,
     ) -> tuple[RenderedConfigFile, RenderedConfigFile]:
         """
         collector.yml 과 router.yml 렌더링
@@ -26,13 +36,14 @@ class MonitoringProvisionService:
         :param context: 로그 에이전트 설정용 DTO
         :return: (collector_config, router_config)
         """
-        collector = self.log_agent_provider.create_log_collector_config(collector_context)
-        router    = self.log_agent_provider.create_log_router_config(router_context)
+        collector = self.log_agent_provider.create_log_collector_config(
+            collector_context
+        )
+        router = self.log_agent_provider.create_log_router_config(router_context)
         return collector, router
 
     def create_agent_set_up_script(
-        self,
-        context: AgentProvisioningContext
+        self, context: AgentProvisioningContext
     ) -> RenderedConfigFile:
         """
         bootstrap 스크립트 렌더링
@@ -43,34 +54,28 @@ class MonitoringProvisionService:
         return self.log_agent_provider.create_agent_set_up_script(context)
 
     def _upload_generated(
-        self,
-        resource_id: str,
-        gen: RenderedConfigFile,
-        ts: int
+        self, resource_id: str, gen: RenderedConfigFile, ts: int
     ) -> str:
         key = self.storage_provider.get_object_key(resource_id, ts, gen.filename)
 
-        ext = gen.filename.rsplit('.', 1)[-1].lower()
-        if ext in ('yml', 'yaml'):
-            content_type = 'text/yaml'
-        elif ext == 'sh':
-            content_type = 'text/x-shellscript'
+        ext = gen.filename.rsplit(".", 1)[-1].lower()
+        if ext in ("yml", "yaml"):
+            content_type = "text/yaml"
+        elif ext == "sh":
+            content_type = "text/x-shellscript"
         else:
-            content_type = 'application/octet-stream'
+            content_type = "application/octet-stream"
 
         return self.storage_provider.upload(
-            data=gen.content,
-            key=key,
-            content_type=content_type
+            data=gen.content, key=key, content_type=content_type
         )
-
 
     def provision_monitoring_project(
         self,
         resource_id: str,
         log_collector_ctx: LogCollectorConfigContext,
         log_router_ctx: LogRouterConfigContext,
-        platform: PlatformType
+        platform: PlatformType,
     ) -> dict[str, str]:
         """
         1) collector/router config 생성
@@ -84,33 +89,42 @@ class MonitoringProvisionService:
 
         """
         ts = int(time.time())
-        
+
         # 1) 템플릿 렌더링
-        collector_cfg, router_cfg = self.create_log_agent_config(log_collector_ctx, log_router_ctx)
-        
-        collector_key = self.storage_provider.get_object_key(resource_id, ts, collector_cfg.filename)
-        router_key    = self.storage_provider.get_object_key(resource_id, ts, router_cfg.filename)
+        collector_cfg, router_cfg = self.create_log_agent_config(
+            log_collector_ctx, log_router_ctx
+        )
+
+        collector_key = self.storage_provider.get_object_key(
+            resource_id, ts, collector_cfg.filename
+        )
+        router_key = self.storage_provider.get_object_key(
+            resource_id, ts, router_cfg.filename
+        )
 
         collector_url = self.storage_provider.get_object_url(collector_key)
-        router_url    = self.storage_provider.get_object_url(router_key)
-        
+        router_url = self.storage_provider.get_object_url(router_key)
+
         agent_base_url = self.storage_provider.get_base_static_url()
         bootstrap_ctx = AgentProvisioningContext(
             base_static_url=agent_base_url,
             collector_config_url=collector_url,
             router_config_url=router_url,
             timestamp=ts,
-            platform=platform
+            platform=platform,
         )
         bootstrap_cfg = self.create_agent_set_up_script(bootstrap_ctx)
 
         # 2) 필요한 granfana worker에게 넘기기 (비동기)
         # TODO : granfana worker에게 넘기기
-        
+
         # 3) S3 업로드
         return {
-            'collector_config_url': self._upload_generated(resource_id, collector_cfg, ts),
-            'router_config_url':    self._upload_generated(resource_id, router_cfg,    ts),
-            'bootstrap_script_url': self._upload_generated(resource_id, bootstrap_cfg, ts),
+            "collector_config_url": self._upload_generated(
+                resource_id, collector_cfg, ts
+            ),
+            "router_config_url": self._upload_generated(resource_id, router_cfg, ts),
+            "bootstrap_script_url": self._upload_generated(
+                resource_id, bootstrap_cfg, ts
+            ),
         }
-    

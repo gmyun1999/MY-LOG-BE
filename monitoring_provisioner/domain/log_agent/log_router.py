@@ -1,5 +1,6 @@
-from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class LogRouterConfigContext(BaseModel):
@@ -17,7 +18,7 @@ class LogRouterConfigContext(BaseModel):
     FIELD_MQ_ROUTING_KEY: str = "mq_routing_key"
     FIELD_MQ_PERSISTENT: str = "mq_persistent"
     FIELD_MQ_HEARTBEAT: str = "mq_heartbeat"
-    
+
     project_id: str
     beats_port: int = 5044
 
@@ -29,7 +30,6 @@ class LogRouterConfigContext(BaseModel):
     mq_exchange: str
     mq_exchange_type: str
     mq_routing_key: str
-    
+
     mq_persistent: bool = True
     mq_heartbeat: int = 30
-

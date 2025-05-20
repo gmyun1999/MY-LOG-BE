@@ -1,6 +1,8 @@
 # core/tasks/utils.py
 from celery import shared_task
+
 from monitoring_provisioner.infra.celery.tasks.base import LockingTask
+
 
 def locking_task(*, max_retries: int, default_retry_delay: int):
     """

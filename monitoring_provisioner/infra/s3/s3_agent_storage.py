@@ -1,16 +1,20 @@
-from typing_extensions import override
 import boto3
 from botocore.exceptions import ClientError
+from typing_extensions import override
+
 from config import settings
-from monitoring_provisioner.service.i_storage.i_storage_provider import IAgentStorageProvider
+from monitoring_provisioner.service.i_storage.i_storage_provider import (
+    IAgentStorageProvider,
+)
+
 
 class S3AgentStorageProvider(IAgentStorageProvider):
     def __init__(self):
         self.bucket = settings.S3_BUCKET_NAME
         self.region = settings.S3_AWS_REGION
         self.client = boto3.client(
-            's3',
-            region_name='ap-northeast-2',
+            "s3",
+            region_name="ap-northeast-2",
             aws_access_key_id=settings.S3_AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.S3_AWS_SECRET_ACCESS_KEY,
         )
@@ -30,20 +34,14 @@ class S3AgentStorageProvider(IAgentStorageProvider):
         if self.region == "us-east-1":
             return f"https://{self.bucket}.s3.amazonaws.com/harvester"
         return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/harvester"
-    
+
     @override
     def upload(
-        self,
-        data: bytes,
-        key: str,
-        content_type: str = 'application/octet-stream'
+        self, data: bytes, key: str, content_type: str = "application/octet-stream"
     ) -> str:
         try:
             self.client.put_object(
-                Bucket=self.bucket,
-                Key=key,
-                Body=data,
-                ContentType=content_type
+                Bucket=self.bucket, Key=key, Body=data, ContentType=content_type
             )
         except ClientError as e:
             raise RuntimeError(f"S3 upload failed: {e}")

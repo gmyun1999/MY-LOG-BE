@@ -1,10 +1,18 @@
 from datetime import datetime
+
 from django.core.management.base import BaseCommand
 
 from monitoring_provisioner.domain.log_agent.agent_provision_context import PlatformType
-from monitoring_provisioner.domain.log_agent.log_collector import FilterCondition, FilterOperator, LogCollectorConfigContext, LogInputType
+from monitoring_provisioner.domain.log_agent.log_collector import (
+    FilterCondition,
+    FilterOperator,
+    LogCollectorConfigContext,
+    LogInputType,
+)
 from monitoring_provisioner.domain.log_agent.log_router import LogRouterConfigContext
-from monitoring_provisioner.service.monitoring_provision_service import MonitoringProvisionService
+from monitoring_provisioner.service.monitoring_provision_service import (
+    MonitoringProvisionService,
+)
 
 
 class Command(BaseCommand):
@@ -18,14 +26,25 @@ class Command(BaseCommand):
             hosts=["127.0.0.1:5044"],
             log_paths=["/var/log/app.log"],
             input_type=LogInputType.PLAIN,
-            multiline_pattern=r'^(INFO|WARN|ERROR)',
-            custom_plain_fields=["level", "<timestamp>", "|","module", "||","[msg_detail]"],
+            multiline_pattern=r"^(INFO|WARN|ERROR)",
+            custom_plain_fields=[
+                "level",
+                "<timestamp>",
+                "|",
+                "module",
+                "||",
+                "[msg_detail]",
+            ],
             filters=[
-                FilterCondition(field="level", operator=FilterOperator.EQUALS, value="ERROR"),
-                FilterCondition(field="level", operator=FilterOperator.EQUALS, value="WARN")
-            ]
+                FilterCondition(
+                    field="level", operator=FilterOperator.EQUALS, value="ERROR"
+                ),
+                FilterCondition(
+                    field="level", operator=FilterOperator.EQUALS, value="WARN"
+                ),
+            ],
         )
-        
+
         router_context = LogRouterConfigContext(
             project_id="proj2",
             beats_port=5044,
@@ -38,7 +57,7 @@ class Command(BaseCommand):
             mq_exchange_type="direct",
             mq_routing_key="logs_1",
             mq_persistent=True,
-            mq_heartbeat=30
+            mq_heartbeat=30,
         )
 
         platform = PlatformType.WINDOWS  # 예시값
@@ -49,7 +68,7 @@ class Command(BaseCommand):
             resource_id=resource_id,
             log_collector_ctx=collector_ctx,
             log_router_ctx=router_context,
-            platform=platform
+            platform=platform,
         )
 
         # 결과 출력

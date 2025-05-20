@@ -1,6 +1,7 @@
-from pathlib import Path
-import environ
 from decimal import ROUND_HALF_UP, DefaultContext
+from pathlib import Path
+
+import environ
 from kombu import Exchange, Queue
 
 # Initialize environment variables
@@ -22,7 +23,11 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "verbose": {"format": "{levelname} {asctime} {module} || {message}", "style": "{"},},
+        "verbose": {
+            "format": "{levelname} {asctime} {module} || {message}",
+            "style": "{",
+        },
+    },
     "handlers": {
         "console": {"class": "logging.StreamHandler", "formatter": "verbose"},
         "file": {
@@ -40,9 +45,7 @@ LOGGING = {
 }
 
 # swagger
-REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"
-}
+REST_FRAMEWORK = {"DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema"}
 
 # Installed Apps
 INSTALLED_APPS = [
@@ -54,10 +57,10 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "corsheaders",
-    'django_celery_results',
+    "django_celery_results",
     "user",
     "common",
-    "monitoring_provisioner"
+    "monitoring_provisioner",
 ]
 # Middleware
 MIDDLEWARE = [
@@ -130,11 +133,10 @@ USE_I18N = True
 USE_TZ = True
 
 # Celery Configuration
-CELERY_RESULT_BACKEND     = None
+CELERY_RESULT_BACKEND = None
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BROKER_URL = env(
-    "CELERY_BROKER_URL",
-    default="amqp://guest:guest@localhost:5672/%2F"
+    "CELERY_BROKER_URL", default="amqp://guest:guest@localhost:5672/%2F"
 )
 
 # redis configuration
@@ -151,8 +153,8 @@ DefaultContext.rounding = ROUND_HALF_UP
 JWT_SECRET = env("JWT_SECRET", default="")
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="GOOGLE_CLIENT_SECRET")
-BASE_URL=env("BASE_URL", default="http://localhost:8000")
-DB_NAME=env("DB_NAME", default="mylogbe")
+BASE_URL = env("BASE_URL", default="http://localhost:8000")
+DB_NAME = env("DB_NAME", default="mylogbe")
 GRAFANA_URL = env("GRAFANA_URL", default="http://localhost:3000")
 S3_BUCKET_NAME = env("S3_BUCKET_NAME", default="mylogbe")
 S3_AWS_REGION = env("AWS_REGION", default="ap-northeast-2")
