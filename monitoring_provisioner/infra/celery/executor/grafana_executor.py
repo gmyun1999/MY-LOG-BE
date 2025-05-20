@@ -344,7 +344,8 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         return saved_result.id
     
     def create_logs_dashboard(self, user_id: str, user_name: str, folder_uid: str = None, 
-                         data_source_uid: str = "Elasticsearch") -> str:
+                         data_source_uid: str = "Elasticsearch", dashboard_title: str = None,
+                         dashboard_uid: str = None) -> str:
         """
         로그 대시보드 생성 태스크 요청
         """
@@ -366,7 +367,9 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
                 "user_id": user_id,
                 "user_name": user_name,
                 "folder_uid": folder_uid,
-                "data_source_uid": data_source_uid
+                "data_source_uid": data_source_uid,
+                "dashboard_title": dashboard_title,
+                "dashboard_uid": dashboard_uid
             },
             date_created=now.isoformat(),
             date_started=None,
@@ -378,7 +381,7 @@ class GrafanaExecutor(MonitoringDashboardExecutor):
         
         # Celery 태스크 비동기 실행
         create_grafana_logs_dashboard.apply_async(
-            args=(saved_result.id, user_id, user_name, folder_uid, data_source_uid),
+            args=(saved_result.id, user_id, user_name, folder_uid, data_source_uid, dashboard_title, dashboard_uid),
             task_id=saved_result.task_id
         )
         

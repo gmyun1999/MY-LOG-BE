@@ -1,12 +1,13 @@
 # monitoring_provisioner/management/commands/create_logs_dashboard_worker.py
 
 from django.core.management.base import BaseCommand
+from typing import Optional, Dict, Any, List
 from monitoring_provisioner.infra.celery.executor.grafana_executor import GrafanaExecutor
 from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
 from monitoring_provisioner.domain.task_result import TaskStatus
 from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
 import time
-from typing import Optional, Dict, Any
+import uuid
 
 
 class Command(BaseCommand):
@@ -18,6 +19,9 @@ class Command(BaseCommand):
         parser.add_argument('--data-source-uid', type=str, default="Elasticsearch", help='Elasticsearch data source UID')
         parser.add_argument('--wait-for-completion', action='store_true', help='Wait for tasks to complete before proceeding')
         parser.add_argument('--make-public', action='store_true', help='Create public dashboard link after creation')
+        parser.add_argument('--folder-uid', type=str, help='Specific folder UID to create dashboard in')
+        parser.add_argument('--dashboard-title', type=str, help='Custom dashboard title')
+        parser.add_argument('--dashboard-uid', type=str, help='Custom dashboard UID (if None, one will be generated)')
 
     def handle(self, *args, **options):
         executor = GrafanaExecutor()
@@ -26,35 +30,54 @@ class Command(BaseCommand):
         data_source_uid = options['data_source_uid']
         wait_for_completion = options['wait_for_completion']
         make_public = options['make_public']
+        specific_folder_uid = options.get('folder_uid')
+        dashboard_title = options.get('dashboard_title')
+        dashboard_uid = options.get('dashboard_uid')
+        
+        # 대시보드 UID가 지정되지 않은 경우 생성
+        if not dashboard_uid:
+            dashboard_uid = f"logs-dashboard-{user_id}-{uuid.uuid4().hex[:8]}"
         
         self.stdout.write(self.style.SUCCESS(f"로그 대시보드 생성 시작: 사용자 {user_id}"))
         
-        # 1. 사용자 폴더 확인 및 생성
-        folder_uid = self.find_folder_uid_for_user(user_id)
-        
-        if not folder_uid:
-            self.stdout.write(self.style.WARNING(f"사용자 {user_id}의 폴더를 찾을 수 없습니다. 새 폴더를 생성합니다."))
-            folder_task_id = executor.create_user_folder(user_id, user_name)
+        # 1. 폴더 UID 결정 (사용자 지정 또는 자동 생성)
+        if specific_folder_uid:
+            folder_uid = specific_folder_uid
+            self.stdout.write(self.style.SUCCESS(f"지정된 폴더 UID 사용: {folder_uid}"))
+        else:
+            # 기존 로직: 사용자 폴더 확인 및 생성
+            folder_uid = self.find_folder_uid_for_user(user_id)
             
-            if wait_for_completion:
-                self.wait_for_task_completion(folder_task_id)
-                folder_uid = self.get_folder_uid_from_task(folder_task_id)
-            else:
-                time.sleep(2)  # 폴더 생성 시간 대기
-                folder_uid = self.get_folder_uid_from_task(folder_task_id)
+            if not folder_uid:
+                self.stdout.write(self.style.WARNING(f"사용자 {user_id}의 폴더를 찾을 수 없습니다. 새 폴더를 생성합니다."))
+                folder_task_id = executor.create_user_folder(user_id, user_name)
+                
+                if wait_for_completion:
+                    self.wait_for_task_completion(folder_task_id)
+                    folder_uid = self.get_folder_uid_from_task(folder_task_id)
+                else:
+                    time.sleep(2)  # 폴더 생성 시간 대기
+                    folder_uid = self.get_folder_uid_from_task(folder_task_id)
         
         self.stdout.write(self.style.SUCCESS(f"사용자 폴더 UID: {folder_uid}"))
         
         # 2. 로그 대시보드 생성
-        self.stdout.write(f"로그 대시보드 생성 요청 중 (폴더 UID: {folder_uid})...")
+        self.stdout.write(f"로그 대시보드 생성 요청 중 (폴더 UID: {folder_uid}, 대시보드 UID: {dashboard_uid})...")
+        
+        # 대시보드 제목 설정
+        if dashboard_title:
+            self.stdout.write(f"커스텀 대시보드 제목 사용: {dashboard_title}")
+        
+        # 대시보드 생성 요청
         dashboard_task_id = executor.create_logs_dashboard(
             user_id=user_id,
             user_name=user_name,
             folder_uid=folder_uid,
-            data_source_uid=data_source_uid
+            data_source_uid=data_source_uid,
+            dashboard_title=dashboard_title,
+            dashboard_uid=dashboard_uid
         )
         
-        dashboard_uid = None
         if wait_for_completion:
             self.wait_for_task_completion(dashboard_task_id)
             dashboard_uid = self.get_dashboard_uid_from_task(dashboard_task_id)
@@ -72,24 +95,18 @@ class Command(BaseCommand):
         public_dashboard_url = None
         if make_public and dashboard_uid:
             self.stdout.write(self.style.SUCCESS("퍼블릭 대시보드 설정 중..."))
-            public_dashboard_task_id = executor.create_public_dashboard(dashboard_uid)
-            
-            if wait_for_completion:
-                self.wait_for_task_completion(public_dashboard_task_id)
-                public_dashboard_result = self.get_public_dashboard_result_from_task(public_dashboard_task_id)
-            else:
-                time.sleep(2)  # 퍼블릭 설정 시간 대기
-                public_dashboard_result = self.get_public_dashboard_result_from_task(public_dashboard_task_id)
-            
-            if public_dashboard_result and 'accessToken' in public_dashboard_result:
-                public_dashboard_token = public_dashboard_result['accessToken']
-                grafana_api = GrafanaAPI()
-                public_dashboard_url = grafana_api.generate_public_dashboard_url(public_dashboard_result)
+            public_dashboard_url = self.create_or_get_public_dashboard(
+                executor=executor,
+                dashboard_uid=dashboard_uid,
+                wait_for_completion=wait_for_completion
+            )
         
         # 4. URL 및 결과 표시
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("=== 로그 대시보드 생성 결과 ==="))
         self.stdout.write(self.style.SUCCESS(f"사용자 ID: {user_id}"))
+        dashboard_title = dashboard_title or f"로그 대시보드 - {user_name}"
+        self.stdout.write(self.style.SUCCESS(f"대시보드 제목: {dashboard_title}"))
         self.stdout.write(self.style.SUCCESS(f"폴더 UID: {folder_uid}"))
         self.stdout.write(self.style.SUCCESS(f"대시보드 UID: {dashboard_uid}"))
         
@@ -102,6 +119,68 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS(f"퍼블릭 대시보드 URL: {public_dashboard_url}"))
         
         self.stdout.write(self.style.SUCCESS("=== 작업 완료 ==="))
+
+    def create_or_get_public_dashboard(self, executor, dashboard_uid, wait_for_completion):
+        """
+        대시보드의 퍼블릭 링크 생성 또는 기존 퍼블릭 링크 조회
+        """
+        grafana_api = GrafanaAPI()
+        
+        try:
+            # 기존 퍼블릭 대시보드 확인 시도
+            existing_public = self.get_existing_public_dashboard(dashboard_uid)
+            
+            if existing_public:
+                self.stdout.write(self.style.SUCCESS(f"이미 퍼블릭 대시보드가 존재합니다. 기존 URL을 사용합니다."))
+                return grafana_api.generate_public_dashboard_url(existing_public)
+            
+            # 없으면 새로 생성
+            public_dashboard_task_id = executor.create_public_dashboard(dashboard_uid)
+            
+            if wait_for_completion:
+                self.wait_for_task_completion(public_dashboard_task_id)
+                public_dashboard_result = self.get_public_dashboard_result_from_task(public_dashboard_task_id)
+            else:
+                time.sleep(2)  # 퍼블릭 설정 시간 대기
+                public_dashboard_result = self.get_public_dashboard_result_from_task(public_dashboard_task_id)
+            
+            if public_dashboard_result and 'accessToken' in public_dashboard_result:
+                return grafana_api.generate_public_dashboard_url(public_dashboard_result)
+            
+            # 대시보드가 이미 퍼블릭인 경우
+            if public_dashboard_task_id:
+                task = TaskResultModel.objects.get(id=public_dashboard_task_id)
+                if task.status == TaskStatus.FAILURE and "Dashboard is already public" in str(task.traceback):
+                    self.stdout.write(self.style.WARNING("대시보드가 이미 퍼블릭으로 설정되어 있습니다. 기존 URL 확인 중..."))
+                    
+                    # 다시 한번 퍼블릭 대시보드 정보 조회 시도
+                    try:
+                        time.sleep(1)  # 짧은 대기 시간
+                        existing_public = self.get_existing_public_dashboard(dashboard_uid)
+                        if existing_public:
+                            return grafana_api.generate_public_dashboard_url(existing_public)
+                    except:
+                        pass
+            
+            return None
+        except Exception as e:
+            self.stdout.write(self.style.ERROR(f"퍼블릭 대시보드 생성 오류: {str(e)}"))
+            return None
+            
+    def get_existing_public_dashboard(self, dashboard_uid):
+        """
+        이미 존재하는 퍼블릭 대시보드 정보 조회
+        """
+        try:
+            grafana_api = GrafanaAPI()
+            public_dashboards = grafana_api.get_public_dashboards_for_dashboard(dashboard_uid)
+            
+            if public_dashboards and len(public_dashboards) > 0:
+                return public_dashboards[0]
+            return None
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"퍼블릭 대시보드 조회 오류: {str(e)}"))
+            return None
     
     def find_folder_uid_for_user(self, user_id: str) -> Optional[str]:
         """
@@ -194,10 +273,6 @@ class Command(BaseCommand):
                     elif 'dashboardId' in result_data:
                         # UID가 없는 경우 ID로 재조회 시도
                         dashboard_id = result_data['dashboardId']
-                        grafana_api = GrafanaAPI()
-                        # 주의: 그라파나에서는 ID로 조회하는 방식이 있지만, 
-                        # 대부분의 경우 API는 UID 기반으로 작동합니다.
-                        # 이 부분은 API 구현에 따라 수정이 필요할 수 있습니다.
                         return dashboard_id
             return None
         except (TaskResultModel.DoesNotExist, Exception) as e:

@@ -229,7 +229,7 @@ def create_grafana_public_dashboard(self, task_result_id, dashboard_uid):
 
 @locking_task(max_retries=3, default_retry_delay=5)
 def create_grafana_logs_dashboard(self, task_result_id, user_id, user_name, folder_uid=None, 
-                               data_source_uid="Elasticsearch"):
+                               data_source_uid="Elasticsearch", dashboard_title=None, dashboard_uid=None):
     """
     로그 분석 대시보드 생성 태스크
     """
@@ -239,11 +239,24 @@ def create_grafana_logs_dashboard(self, task_result_id, user_id, user_name, fold
         task_result = TaskResultModel.objects.get(id=task_result_id)
         task_data = task_result.result or {}
         print(f"태스크 데이터: {task_data}")
+        
+        # 태스크 데이터에서 추가 정보 가져오기
+        if dashboard_title is None and 'dashboard_title' in task_data:
+            dashboard_title = task_data.get('dashboard_title')
+        if dashboard_uid is None and 'dashboard_uid' in task_data:
+            dashboard_uid = task_data.get('dashboard_uid')
     except TaskResultModel.DoesNotExist:
         print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
     
     grafana_api = GrafanaAPI()
-    result = grafana_api.create_logs_dashboard(user_id, user_name, folder_uid, data_source_uid)
+    result = grafana_api.create_logs_dashboard(
+        user_id=user_id, 
+        user_name=user_name, 
+        folder_uid=folder_uid, 
+        data_source_uid=data_source_uid,
+        dashboard_title=dashboard_title,
+        dashboard_uid=dashboard_uid
+    )
     
     print(f"로그 대시보드 생성 결과: {result}")
     
