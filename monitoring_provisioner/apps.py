@@ -7,3 +7,4 @@ class MonitoringProvisionerConfig(AppConfig):
 
     def ready(self) -> None:
         import monitoring_provisioner.infra.models.task_result_model
+        import monitoring_provisioner.infra.models.visualization_platform_model

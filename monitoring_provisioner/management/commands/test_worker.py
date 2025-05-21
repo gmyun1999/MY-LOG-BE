@@ -3,8 +3,8 @@ import time
 from django.core.management.base import BaseCommand
 
 from monitoring_provisioner.domain.task_result import TaskStatus
-from monitoring_provisioner.infra.celery.executor.grafana_executor import (
-    GrafanaExecutor,
+from monitoring_provisioner.infra.celery.task_executor.grafana_executor import (
+    GrafanaTaskExecutor,
 )
 from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
 from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
@@ -39,7 +39,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        executor = GrafanaExecutor()
+        executor = GrafanaTaskExecutor()
         user_id = options["user_id"]
         user_name = options["user_name"]
         dashboard_title = options["dashboard_title"]
@@ -58,7 +58,7 @@ class Command(BaseCommand):
 
             # 1. 폴더 생성
             self.stdout.write("1. 폴더 생성 요청 중...")
-            folder_task_id = executor.create_user_folder(user_id, user_name)
+            folder_task_id = executor.dispatch_create_user_folder(user_id, user_name)
             self.stdout.write(
                 self.style.SUCCESS(
                     f"폴더 생성 태스크 등록 완료. Task ID: {folder_task_id}"
@@ -201,7 +201,7 @@ class Command(BaseCommand):
             public_dashboard_uid = None
             if dashboard_uid:
                 self.stdout.write("6. 퍼블릭 대시보드 생성 요청 중...")
-                public_dashboard_task_id = executor.create_public_dashboard(
+                public_dashboard_task_id = executor.dispatch_create_public_dashboard(
                     dashboard_uid
                 )
                 self.stdout.write(
@@ -303,7 +303,7 @@ class Command(BaseCommand):
 
         elif action in ["folder", "all"]:
             self.stdout.write("폴더 생성 요청 중...")
-            task_id = executor.create_user_folder(user_id, user_name)
+            task_id = executor.dispatch_create_user_folder(user_id, user_name)
             task_ids["folder"] = task_id
             self.stdout.write(
                 self.style.SUCCESS(f"폴더 생성 태스크 등록 완료. Task ID: {task_id}")
@@ -388,7 +388,7 @@ class Command(BaseCommand):
                 return
 
             self.stdout.write(f"대시보드 UID: {dashboard_uid}")
-            task_id = executor.create_public_dashboard(dashboard_uid)
+            task_id = executor.dispatch_create_public_dashboard(dashboard_uid)
             task_ids["public"] = task_id
             self.stdout.write(
                 self.style.SUCCESS(

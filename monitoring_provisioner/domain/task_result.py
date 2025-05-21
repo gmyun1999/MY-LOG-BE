@@ -12,6 +12,17 @@ class TaskStatus(StrEnum):
     FAILURE = "FAILURE"
 
 
+class MonitoringDashboardTaskName(StrEnum):
+    CREATE_DASHBOARD_USER_FOLDER = "create_dashboard_user_folder"
+    CREATE_DASHBOARD_SERVICE_ACCOUNT = "create_dashboard_service_account"
+    CREATE_DASHBOARD_SERVICE_TOKEN = "create_dashboard_service_token"
+    SET_GRAFANA_FOLDER_PERMISSIONS = "set_grafana_folder_permissions"
+    CREATE_DASHBOARD = "create_dashboard"
+    CREATE_PUBLIC_DASHBOARD = "create_public_dashboard"
+    GET_GRAFANA_DASHBOARD = "get_grafana_dashboard"
+    GET_GRAFANA_FOLDERS = "get_grafana_folders"
+
+
 @dataclass
 class TaskResult(Domain):
     """
@@ -19,7 +30,6 @@ class TaskResult(Domain):
     """
 
     FIELD_ID = "id"
-    FIELD_TASK_ID = "task_id"
     FIELD_TASK_NAME = "task_name"
     FIELD_STATUS = "status"
     FIELD_RESULT = "result"
@@ -30,12 +40,11 @@ class TaskResult(Domain):
     FIELD_RETRIES = "retries"
 
     id: str
-    task_id: str
     task_name: str
     status: TaskStatus
-    result: Any
-    date_created: str
-    date_started: str | None
-    date_done: str | None
-    traceback: str | None
-    retries: int
+    date_created: str | None = None
+    result: Any | None = None
+    date_started: str | None = None
+    date_done: str | None = None
+    traceback: str | None = None
+    retries: int = 0

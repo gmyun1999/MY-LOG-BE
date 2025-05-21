@@ -19,7 +19,7 @@ from monitoring_provisioner.service.i_storage.i_storage_provider import (
 )
 
 
-class MonitoringProvisionService:
+class HarvesterAgentService:
     def __init__(self):
         # TODO: DI 적용 예정
         self.log_agent_provider: ILogAgentProvider = FileBeats()
@@ -70,7 +70,7 @@ class MonitoringProvisionService:
             data=gen.content, key=key, content_type=content_type
         )
 
-    def provision_monitoring_project(
+    def download_agent_set_up_script(
         self,
         resource_id: str,
         log_collector_ctx: LogCollectorConfigContext,
@@ -90,7 +90,7 @@ class MonitoringProvisionService:
         """
         ts = int(time.time())
 
-        # 1) 템플릿 렌더링
+        # 템플릿 렌더링
         collector_cfg, router_cfg = self.create_log_agent_config(
             log_collector_ctx, log_router_ctx
         )
@@ -115,10 +115,6 @@ class MonitoringProvisionService:
         )
         bootstrap_cfg = self.create_agent_set_up_script(bootstrap_ctx)
 
-        # 2) 필요한 granfana worker에게 넘기기 (비동기)
-        # TODO : granfana worker에게 넘기기
-
-        # 3) S3 업로드
         return {
             "collector_config_url": self._upload_generated(
                 resource_id, collector_cfg, ts

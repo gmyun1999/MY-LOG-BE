@@ -8,8 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from common.interface.validators import validate_body
-from monitoring_provisioner.infra.celery.executor.grafana_executor import (
-    GrafanaExecutor,
+from monitoring_provisioner.infra.celery.task_executor.grafana_executor import (
+    GrafanaTaskExecutor,
 )
 from user.interface.validator.user_token_validator import validate_token
 
@@ -33,7 +33,7 @@ class MonitoringProvisionView(APIView):
 
         user_id: str = Field(..., description="사용자 ID")
         user_name: str = Field(..., description="사용자 이름")
-        dashboard_title: str = Field(None, description="대시보드 제목")
+        dashboard_title: str | None = Field(None, description="대시보드 제목")
         panels: List[Dict[str, Any]] = Field(
             default_factory=list, description="패널 설정"
         )
@@ -43,7 +43,7 @@ class MonitoringProvisionView(APIView):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.executor = GrafanaExecutor()
+        self.executor = GrafanaTaskExecutor()
 
     """
     모니터링 프로젝트 생성
@@ -59,7 +59,9 @@ class MonitoringProvisionView(APIView):
         3. 등록된 첫 번째 태스크 ID를 클라이언트에 반환
         """
         # 1. 사용자 폴더 생성 태스크 등록
-        task_id = self.executor.create_user_folder(body.user_id, body.user_name)
+        task_id = self.executor.dispatch_create_user_folder(
+            body.user_id, body.user_name
+        )
 
         # 2. 대시보드 생성 태스크 등록
         self.executor.create_dashboard(

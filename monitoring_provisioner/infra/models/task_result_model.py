@@ -4,8 +4,7 @@ from monitoring_provisioner.domain.task_result import TaskStatus
 
 
 class TaskResultModel(models.Model):
-    id = models.CharField(primary_key=True, max_length=36, editable=False)
-    task_id = models.CharField(max_length=36, unique=True)
+    id = models.CharField(primary_key=True, max_length=36)
     task_name = models.CharField(max_length=255)
 
     status = models.CharField(

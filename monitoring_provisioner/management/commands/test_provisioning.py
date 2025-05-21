@@ -10,9 +10,7 @@ from monitoring_provisioner.domain.log_agent.log_collector import (
     LogInputType,
 )
 from monitoring_provisioner.domain.log_agent.log_router import LogRouterConfigContext
-from monitoring_provisioner.service.monitoring_provision_service import (
-    MonitoringProvisionService,
-)
+from monitoring_provisioner.service.harvester_agent_service import HarvesterAgentService
 
 
 class Command(BaseCommand):
@@ -63,8 +61,8 @@ class Command(BaseCommand):
         platform = PlatformType.WINDOWS  # 예시값
 
         # 서비스 호출
-        svc = MonitoringProvisionService()
-        urls = svc.provision_monitoring_project(
+        svc = HarvesterAgentService()
+        urls = svc.download_agent_set_up_script(
             resource_id=resource_id,
             log_collector_ctx=collector_ctx,
             log_router_ctx=router_context,

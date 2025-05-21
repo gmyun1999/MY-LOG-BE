@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
-from monitoring_provisioner.domain.grafana_dashboard import GrafanaDashboard
+from monitoring_provisioner.domain.visualization_platform.dashboard import Dashboard
 
 
 class MonitoringDashboardExecutor(ABC):
@@ -14,7 +14,7 @@ class MonitoringDashboardExecutor(ABC):
         :return: 생성된 폴더 UID
         """
         pass
-    
+
     @abstractmethod
     def create_service_account(self, user_id: str) -> Dict:
         """
@@ -23,7 +23,7 @@ class MonitoringDashboardExecutor(ABC):
         :return: 서비스 계정 정보와 토큰
         """
         pass
-    
+
     @abstractmethod
     def create_dashboard(self, user_id: str, title: str, panels: List = None) -> None:
         """
@@ -34,21 +34,21 @@ class MonitoringDashboardExecutor(ABC):
         :return: None
         """
         pass
-    
-    @abstractmethod
-    def get_dashboard(self, dashboard_uid: str) -> Optional[GrafanaDashboard]:
-        """
-        대시보드 정보 조회
-        :param dashboard_uid: 대시보드 UID
-        :return: 대시보드 객체
-        """
-        pass
-    
-    @abstractmethod
-    def get_user_dashboards(self, user_id: str) -> List[GrafanaDashboard]:
-        """
-        사용자 대시보드 목록 조회
-        :param user_id: 사용자 ID
-        :return: 대시보드 객체 리스트
-        """
-        pass
+
+    # @abstractmethod
+    # def get_dashboard(self, dashboard_uid: str) -> Optional[Dashboard]:
+    #     """
+    #     대시보드 정보 조회
+    #     :param dashboard_uid: 대시보드 UID
+    #     :return: 대시보드 객체
+    #     """
+    #     pass
+
+    # @abstractmethod
+    # def get_user_dashboards(self, user_id: str) -> List[Dashboard]:
+    #     """
+    #     사용자 대시보드 목록 조회
+    #     :param user_id: 사용자 ID
+    #     :return: 대시보드 객체 리스트
+    #     """
+    #     pass

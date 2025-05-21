@@ -78,7 +78,7 @@ class OAuthLoginView(APIView):
             user = self.user_service.create_user(
                 User(
                     id=str(uuid.uuid4()),
-                    name=oauth_user_vo.name,
+                    name=oauth_user_vo.name or "",
                     email=oauth_user_vo.email,
                     mobile_no=oauth_user_vo.mobile_no,
                     oauth_type=auth_server,

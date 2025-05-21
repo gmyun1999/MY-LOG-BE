@@ -23,6 +23,7 @@ class LockingTask(Task):
 
     def __call__(self, *args, **kwargs):
         task_result_id = args[0]
+        print(f"task_result_id!!!!!!!!!!!!!!!!!!!!!!!!: {task_result_id}")
         lock_key = f"lock:dashboard:{task_result_id}"
         proc_key = f"done:dashboard:{task_result_id}"
         token = str(uuid.uuid4())

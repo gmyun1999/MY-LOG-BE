@@ -1,243 +1,231 @@
 import uuid
+from typing import Any
 
+from django.db import transaction
 from django.utils import timezone
 
+from monitoring_provisioner.domain.i_repo.i_task_result_repo import ITaskResultRepo
+from monitoring_provisioner.domain.i_repo.i_visualization_platform_repo.i_folder_permission_repo import (
+    IFolderPermissionRepo,
+)
+from monitoring_provisioner.domain.i_repo.i_visualization_platform_repo.i_folder_repo import (
+    IFolderRepo,
+)
+from monitoring_provisioner.domain.i_repo.i_visualization_platform_repo.i_service_account_repo import (
+    IServiceAccountRepo,
+)
 from monitoring_provisioner.domain.task_result import TaskStatus
+from monitoring_provisioner.domain.visualization_platform.folder import (
+    FolderPermission,
+    FolderPermissionLevel,
+    UserFolder,
+)
+from monitoring_provisioner.domain.visualization_platform.service_account import (
+    ServiceAccount,
+)
 from monitoring_provisioner.infra.celery.tasks.utils import locking_task
 from monitoring_provisioner.infra.grafana.grafana_api import GrafanaAPI
-from monitoring_provisioner.infra.models.task_result_model import TaskResultModel
+from monitoring_provisioner.infra.repo.task_result_repo import TaskResultRepo
+from monitoring_provisioner.infra.repo.visualization_platform_repo.folder_permission_repo import (
+    FolderPermissionRepo,
+)
+from monitoring_provisioner.infra.repo.visualization_platform_repo.folder_repo import (
+    FolderRepo,
+)
+from monitoring_provisioner.infra.repo.visualization_platform_repo.service_account_repo import (
+    ServiceAccountRepo,
+)
+
+grafana_api = GrafanaAPI()
+
+task_result_repo: ITaskResultRepo = TaskResultRepo()
+folder_repo: IFolderRepo = FolderRepo()
+service_account_repo: IServiceAccountRepo = ServiceAccountRepo()
+folder_permission_repo: IFolderPermissionRepo = FolderPermissionRepo()
 
 
-# 태스크 성공 시 상태 업데이트 함수
-def update_task_success(task_result_id, result):
-    try:
-        TaskResultModel.objects.filter(id=task_result_id).update(
-            status=TaskStatus.SUCCESS, result=result, date_done=timezone.now()
-        )
-        print(f"태스크 {task_result_id} 상태 업데이트: SUCCESS")
-    except Exception as e:
-        print(f"태스크 상태 업데이트 실패: {str(e)}")
+def update_task_success(task_result_id: str, result: Any):
+    task_result_repo.update_fields(
+        task_id=task_result_id,
+        status=TaskStatus.SUCCESS,
+        result=result,
+        date_done=timezone.now(),
+    )
 
 
-@locking_task(max_retries=3, default_retry_delay=5)
-def create_grafana_folder(self, task_result_id, folder_name):
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_create_grafana_folder(self, task_id: str, user_id: str, folder_name: str):
     """
-    그라파나 폴더 생성 태스크
-    첫 번째 인자로 task_result_id를 유지하여 시그널 핸들러와 호환성 유지
+    그라파나 유저 전용 폴더 생성 태스크
     """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        # 태스크 정보 조회
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
     # 그라파나 API 호출
-    grafana_api = GrafanaAPI()
     result = grafana_api.create_folder(folder_name)
 
-    # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
+    folder = UserFolder(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        uid=result["uid"],
+        name=result["title"],
+        org_id=str(result.get("orgId")) if result.get("orgId") else None,
+        created_by_task=task_id,
+    )
+
+    with transaction.atomic():
+        folder_repo.save(folder)
+        update_task_success(task_id, result)
 
     return result
 
 
-@locking_task(max_retries=3, default_retry_delay=5)
-def create_grafana_service_account(self, task_result_id, name, role="Viewer"):
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_create_grafana_service_account(
+    self, task_id: str, name: str, user_id: str, role: str = "Viewer"
+):
     """
     그라파나 서비스 계정 생성 태스크
     """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    grafana_api = GrafanaAPI()
-    print(
-        f"서비스 계정 생성 요청: URL={grafana_api.base_url}/api/serviceaccounts, 데이터={{'name': '{name}', 'role': '{role}'}}"
-    )
     result = grafana_api.create_service_account(name, role)
-    print(f"서비스 계정 생성 응답: 상태 코드=201, 응답={result}")
-
-    # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
+    print(f"result: {result}")
+    account = ServiceAccount(
+        id=str(uuid.uuid4()),
+        account_id=result["id"],
+        user_id=user_id,
+        name=result["name"],
+        role=result["role"],
+        is_disabled=result["isDisabled"],
+    )
+    with transaction.atomic():
+        service_account_repo.save(account)
+        update_task_success(task_id, result)
 
     return result
 
 
-@locking_task(max_retries=3, default_retry_delay=5)
-def create_grafana_service_token(self, task_result_id, service_account_id, token_name):
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_create_grafana_service_token(
+    self, task_id: str, service_account_id: int, token_name: str
+):
     """
     그라파나 서비스 토큰 생성 태스크
     """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    grafana_api = GrafanaAPI()
-    print(f"서비스 토큰 생성 요청: 계정 ID={service_account_id}, 토큰명={token_name}")
     result = grafana_api.create_service_token(service_account_id, token_name)
 
-    # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
+    with transaction.atomic():
+        service_account_repo.update_token(
+            account_id=int(service_account_id), token=result["key"]
+        )
+        update_task_success(task_id, result)
 
     return result
 
 
-@locking_task(max_retries=3, default_retry_delay=5)
-def set_grafana_folder_permissions(
-    self, task_result_id, folder_uid, service_account_id
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_set_grafana_folder_permissions(
+    self, task_id: str, folder_uid: str, service_account_id: str
 ):
     """
     그라파나 폴더 권한 설정 태스크
     """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    grafana_api = GrafanaAPI()
     result = grafana_api.set_folder_permissions(folder_uid, service_account_id)
 
-    # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
+    permission = FolderPermission(
+        id=str(uuid.uuid4()),
+        folder_uid=folder_uid,
+        service_account_id=int(service_account_id),
+        permission=FolderPermissionLevel.VIEW,
+    )
+    with transaction.atomic():
+        folder_permission_repo.save(permission)
+        update_task_success(task_id, result)
 
     return result
 
 
-@locking_task(max_retries=3, default_retry_delay=5)
-def create_grafana_dashboard(self, task_result_id, dashboard_data, folder_uid=None):
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_create_grafana_dashboard(
+    self, task_id: str, dashboard_data: dict, folder_uid: str
+):
     """
     그라파나 대시보드 생성 태스크
     """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-
-        # 폴더 UID가 None이고 태스크 데이터에 있다면 사용
-        if folder_uid is None and "folder_uid" in task_data:
-            folder_uid = task_data.get("folder_uid")
-            print(f"태스크 데이터에서 폴더 UID 사용: {folder_uid}")
-
-        # 여기에 추가: 사용자 ID로 폴더 검색
-        if folder_uid is None and "user_id" in task_data:
-            user_id = task_data.get("user_id")
-            try:
-                # 그라파나 API에서 폴더 목록 조회
-                grafana_api = GrafanaAPI()
-                folders = grafana_api.get_folders()
-
-                # 폴더 이름 패턴
-                folder_pattern = f"User_{user_id}_"
-
-                for folder in folders:
-                    if folder_pattern in folder.get("title", ""):
-                        folder_uid = folder.get("uid")
-                        print(f"그라파나 API에서 찾은 폴더 UID: {folder_uid}")
-                        break
-            except Exception as e:
-                print(f"폴더 검색 오류: {str(e)}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    print(
-        f"대시보드 생성 시작: dashboard_data={dashboard_data}, folder_uid={folder_uid}"
-    )
-
-    grafana_api = GrafanaAPI()
     result = grafana_api.create_dashboard(dashboard_data, folder_uid)
 
-    print(f"대시보드 생성 결과: {result}")
-
     # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
+    update_task_success(task_id, result)
 
     return result
 
 
-@locking_task(max_retries=3, default_retry_delay=5)
-def get_grafana_dashboard(self, task_result_id, uid):
-    """
-    그라파나 대시보드 조회 태스크
-    """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    grafana_api = GrafanaAPI()
-    result = grafana_api.get_dashboard(uid)
-
-    # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
-
-    return result
-
-
-@locking_task(max_retries=3, default_retry_delay=5)
-def get_grafana_folders(self, task_result_id):
-    """
-    그라파나 폴더 목록 조회 태스크
-    """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    grafana_api = GrafanaAPI()
-    result = grafana_api.get_folders()
-
-    # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
-
-    return result
-
-
-@locking_task(max_retries=3, default_retry_delay=5)
-def create_grafana_public_dashboard(self, task_result_id, dashboard_uid):
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_create_grafana_public_dashboard(self, task_id: str, dashboard_uid: str):
     """
     그라파나 퍼블릭 대시보드 생성 태스크
     """
-    print(f"태스크 {task_result_id} 실행 중...")
-
-    try:
-        task_result = TaskResultModel.objects.get(id=task_result_id)
-        task_data = task_result.result or {}
-        print(f"태스크 데이터: {task_data}")
-    except TaskResultModel.DoesNotExist:
-        print(f"태스크 정보 조회 실패: TaskResultModel matching query does not exist.")
-
-    grafana_api = GrafanaAPI()
     result = grafana_api.create_public_dashboard(dashboard_uid)
 
     # 성공 시 상태 업데이트
-    update_task_success(task_result_id, result)
+    update_task_success(task_id, result)
 
     return result
+
+
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_get_grafana_dashboard(self, task_id: str, dashboard_uid: str):
+    """
+    그라파나 대시보드 조회 태스크
+    """
+    result = grafana_api.get_dashboard(dashboard_uid)
+
+    # 성공 시 상태 업데이트
+    update_task_success(task_id, result)
+
+    return result
+
+
+@locking_task(max_retries=3, default_retry_delay=2)
+def task_get_grafana_folders(self, task_id: str):
+    """
+    view 권한을 가진 그라파나 폴더 목록 조회 태스크
+    """
+    result = grafana_api.get_folders()
+
+    # 성공 시 상태 업데이트
+    update_task_success(task_id, result)
+
+    return result
+
+
+@locking_task(max_retries=3, default_retry_delay=2)
+def wrap_create_service_token(self, task_id: str, user_id: str, token_name: str):
+    """
+    user_id 로 ServiceAccount를 조회해 account_id를 얻고,
+    token_name과 함께 실제 Celery 태스크를 호출
+    """
+    sa = service_account_repo.find_by_user_id(user_id)
+    if sa is None:
+        raise RuntimeError(f"No ServiceAccount for user {user_id}")
+
+    async_res = task_create_grafana_service_token.apply_async(
+        args=(task_id, sa.account_id, token_name), task_id=task_id
+    )
+    return async_res.id
+
+
+@locking_task(max_retries=3, default_retry_delay=2)
+def wrap_set_folder_permissions(self, task_id: str, user_id: str):
+    """
+    user_id 로 UserFolder와 ServiceAccount를 조회해
+    folder_uid, account_id를 얻고 실제 권한설정 태스크를 호출
+    """
+    folder = folder_repo.find_by_user_id(user_id)
+    if folder is None:
+        raise RuntimeError(f"No UserFolder for user {user_id}")
+
+    sa = service_account_repo.find_by_user_id(user_id)
+    if sa is None:
+        raise RuntimeError(f"No ServiceAccount for user {user_id}")
+
+    async_res = task_set_grafana_folder_permissions.apply_async(
+        args=(task_id, folder.uid, sa.account_id), task_id=task_id
+    )
+    return async_res.id
