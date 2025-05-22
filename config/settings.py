@@ -60,7 +60,7 @@ INSTALLED_APPS = [
     "django_celery_results",
     "user",
     "common",
-    "monitoring_provisioner",
+    "monitoring",
 ]
 # Middleware
 MIDDLEWARE = [

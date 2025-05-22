@@ -10,7 +10,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 # ─ Celery 앱 생성 ─
 app = Celery("config")
 app.config_from_object("django.conf:settings", namespace="CELERY")
-app.autodiscover_tasks(["monitoring_provisioner.infra.celery.tasks"])
+app.autodiscover_tasks(["monitoring.infra.celery.tasks"])
 
 TASK_QUEUE = "worker_tasks_queue"
 ROUTING_KEY = "tasks"
@@ -45,7 +45,7 @@ app.conf.broker_transport_options = {"confirm_publish": True}
 @worker_process_init.connect
 def init_worker(**kwargs):
     print("registering signals")
-    import monitoring_provisioner.infra.celery.tasks.signals.task_signals
+    import monitoring.infra.celery.tasks.signals.task_signals
 
 
 # setup_celery_signals()
