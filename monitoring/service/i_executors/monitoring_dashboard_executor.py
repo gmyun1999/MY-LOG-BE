@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from monitoring.service.i_executors.excutor_DTO import (
+    BaseProvisionDTO,
+    DashboardProvisionDTO,
+)
 from user.domain.user import User
 
 
@@ -73,16 +77,7 @@ class MonitoringDashboardTaskExecutor(ABC):
     @abstractmethod
     def dispatch_provision_base_resources_workflow(
         self,
-        user: User,
-        folder_task_id: str,
-        account_task_id: str,
-        wrap_create_token_task_id: str,
-        wrap_set_perm_task_id: str,
-        token_task_id: str,
-        perm_task_id: str,
-        folder_name: str,
-        account_name: str,
-        token_name: str,
+        base_dto: BaseProvisionDTO,
     ) -> str:
         """
         < 태스크 등록 >
@@ -93,22 +88,8 @@ class MonitoringDashboardTaskExecutor(ABC):
     @abstractmethod
     def dispatch_provision_dashboard_workflow(
         self,
-        user: User,
-        folder_task_id: str,
-        account_task_id: str,
-        wrap_create_token_task_id: str,
-        wrap_set_perm_task_id: str,
-        token_task_id: str,
-        perm_task_id: str,
-        wrap_create_dashboard_task_id: str,
-        wrap_create_public_dashboard_task_id: str,
-        dashboard_task_id: str,
-        public_dashboard_task_id: str,
-        folder_name: str,
-        account_name: str,
-        token_name: str,
-        dashboard_title: str,
-        dashboard_json_config: dict[str, Any],
+        dash_dto: DashboardProvisionDTO,
+        base_dto: BaseProvisionDTO | None = None,
     ) -> str:
         """
         < 태스크 등록 >

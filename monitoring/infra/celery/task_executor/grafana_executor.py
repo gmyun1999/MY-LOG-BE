@@ -18,6 +18,10 @@ from monitoring.infra.celery.tasks.grafana_tasks import (
     wrap_create_service_token,
     wrap_set_folder_permissions,
 )
+from monitoring.service.i_executors.excutor_DTO import (
+    BaseProvisionDTO,
+    DashboardProvisionDTO,
+)
 from monitoring.service.i_executors.monitoring_dashboard_executor import (
     MonitoringDashboardTaskExecutor,
 )
@@ -81,84 +85,70 @@ class GrafanaTaskExecutor(MonitoringDashboardTaskExecutor):
 
     def build_base_resources_chain(
         self,
-        user: User,
-        folder_task_id: str,
-        account_task_id: str,
-        wrap_create_token_task_id: str,
-        wrap_set_perm_task_id: str,
-        token_task_id: str,
-        perm_task_id: str,
-        folder_name: str,
-        account_name: str,
-        token_name: str,
+        dto: BaseProvisionDTO,
     ):
         """
-        유저 폴더 생성, 서비스 계정 생성, 토큰 생성(wrapper), 권한 설정(wrapper) 단계를 체인으로 구성
+        유저 폴더 생성 → 서비스 계정 생성 → 토큰 생성(wrapper) → 권한 설정(wrapper)
         """
         return chain(
             self.get_create_user_folder_sig(
-                task_id=folder_task_id, user_id=user.id, folder_name=folder_name
+                task_id=dto.folder_task_id,
+                user_id=dto.user.id,
+                folder_name=dto.folder_name,
             ),
             self.get_create_service_account_sig(
-                task_id=account_task_id, account_name=account_name, user_id=user.id
+                task_id=dto.account_task_id,
+                account_name=dto.account_name,
+                user_id=dto.user.id,
             ),
             wrap_create_service_token.si(
-                wrap_create_token_task_id, token_task_id, user.id, token_name
-            ).set(task_id=token_task_id),
+                dto.wrap_create_token_task_id,
+                dto.token_task_id,
+                dto.user.id,
+                dto.token_name,
+            ).set(task_id=dto.token_task_id),
             wrap_set_folder_permissions.si(
-                wrap_set_perm_task_id, perm_task_id, user.id
-            ).set(task_id=perm_task_id),
+                dto.wrap_set_perm_task_id,
+                dto.perm_task_id,
+                dto.user.id,
+            ).set(task_id=dto.perm_task_id),
         )
 
     def build_dashboard_provision_chain(
         self,
-        user: User,
-        folder_task_id: str,
-        account_task_id: str,
-        wrap_create_token_task_id: str,
-        wrap_set_perm_task_id: str,
-        token_task_id: str,
-        perm_task_id: str,
-        wrap_create_dashboard_task_id: str,
-        wrap_create_public_dashboard_task_id: str,
-        dashboard_task_id: str,
-        public_dashboard_task_id: str,
-        folder_name: str,
-        account_name: str,
-        token_name: str,
-        dashboard_title: str,
-        dashboard_json_config: dict,
+        dash_dto: DashboardProvisionDTO,
+        base_dto: BaseProvisionDTO | None = None,
     ):
         """
-        기본 리소스 체인 이후 → 대시보드 생성 → 퍼블릭 대시보드 생성 체인 구성
+        기본 리소스 체인 이후 → 대시보드 생성 → 퍼블릭 대시보드 생성
+        base_dto가 None이면 기본 리소스 체인은 제외
         """
-        base_chain = self.build_base_resources_chain(
-            user,
-            folder_task_id,
-            account_task_id,
-            wrap_create_token_task_id,
-            wrap_set_perm_task_id,
-            token_task_id,
-            perm_task_id,
-            folder_name,
-            account_name,
-            token_name,
-        )
-        return chain(
-            base_chain,
+        tasks = []
+
+        if base_dto is not None:
+            base_chain = self.build_base_resources_chain(base_dto)
+            tasks.append(base_chain)
+
+        tasks.append(
             wrap_create_grafana_dashboard.si(
-                wrap_create_dashboard_task_id,
-                dashboard_task_id,
-                user.id,
-                dashboard_title,
-                dashboard_json_config,
-            ).set(task_id=wrap_create_dashboard_task_id),
-            wrap_create_grafana_public_dashboard.si(
-                wrap_create_public_dashboard_task_id,
-                public_dashboard_task_id,
-                user.id,
-            ).set(task_id=wrap_create_public_dashboard_task_id),
+                dash_dto.wrap_create_dashboard_task_id,
+                dash_dto.dashboard_task_id,
+                dash_dto.user.id,
+                dash_dto.dashboard_title,
+                dash_dto.dashboard_json_config,
+            ).set(task_id=dash_dto.wrap_create_dashboard_task_id)
         )
+
+        # 3) 퍼블릭 대시보드 생성 태스크
+        tasks.append(
+            wrap_create_grafana_public_dashboard.si(
+                dash_dto.wrap_create_public_dashboard_task_id,
+                dash_dto.public_dashboard_task_id,
+                dash_dto.user.id,
+            ).set(task_id=dash_dto.wrap_create_public_dashboard_task_id)
+        )
+
+        return chain(*tasks)
 
     # ─────────────────────────────────────────────────────────────────────────────
     # Dispatchers
@@ -218,16 +208,7 @@ class GrafanaTaskExecutor(MonitoringDashboardTaskExecutor):
     @override
     def dispatch_provision_base_resources_workflow(
         self,
-        user: User,
-        folder_task_id: str,
-        account_task_id: str,
-        wrap_create_token_task_id: str,
-        wrap_set_perm_task_id: str,
-        token_task_id: str,
-        perm_task_id: str,
-        folder_name: str,
-        account_name: str,
-        token_name: str,
+        dto: BaseProvisionDTO,
     ) -> str:
         """
         유저 폴더 만들고 서비스 계정과 토큰을 생성한다음 권한 주는 태스크 체인
@@ -238,16 +219,7 @@ class GrafanaTaskExecutor(MonitoringDashboardTaskExecutor):
         """
 
         workflow_chain = self.build_base_resources_chain(
-            user=user,
-            folder_task_id=folder_task_id,
-            account_task_id=account_task_id,
-            wrap_create_token_task_id=wrap_create_token_task_id,
-            wrap_set_perm_task_id=wrap_set_perm_task_id,
-            token_task_id=token_task_id,
-            perm_task_id=perm_task_id,
-            folder_name=folder_name,
-            account_name=account_name,
-            token_name=token_name,
+            dto=dto,
         )
         result = workflow_chain.apply_async()
         return result.id
@@ -255,43 +227,15 @@ class GrafanaTaskExecutor(MonitoringDashboardTaskExecutor):
     @override
     def dispatch_provision_dashboard_workflow(
         self,
-        user: User,
-        folder_task_id: str,
-        account_task_id: str,
-        wrap_create_token_task_id: str,
-        wrap_set_perm_task_id: str,
-        token_task_id: str,
-        perm_task_id: str,
-        wrap_create_dashboard_task_id: str,
-        wrap_create_public_dashboard_task_id: str,
-        dashboard_task_id: str,
-        public_dashboard_task_id: str,
-        folder_name: str,
-        account_name: str,
-        token_name: str,
-        dashboard_title: str,
-        dashboard_json_config: dict[str, Any],
+        dash_dto: DashboardProvisionDTO,
+        base_dto: BaseProvisionDTO | None = None,
     ) -> str:
         """
         build_dashboard_provision_chain를 실행하여 비동기로 디스패치, 루트 task_id 반환
         """
         workflow_chain = self.build_dashboard_provision_chain(
-            user=user,
-            folder_task_id=folder_task_id,
-            account_task_id=account_task_id,
-            wrap_create_token_task_id=wrap_create_token_task_id,
-            wrap_set_perm_task_id=wrap_set_perm_task_id,
-            token_task_id=token_task_id,
-            perm_task_id=perm_task_id,
-            wrap_create_dashboard_task_id=wrap_create_dashboard_task_id,
-            wrap_create_public_dashboard_task_id=wrap_create_public_dashboard_task_id,
-            dashboard_task_id=dashboard_task_id,
-            public_dashboard_task_id=public_dashboard_task_id,
-            folder_name=folder_name,
-            account_name=account_name,
-            token_name=token_name,
-            dashboard_title=dashboard_title,
-            dashboard_json_config=dashboard_json_config,
+            base_dto=base_dto,
+            dash_dto=dash_dto,
         )
         result = workflow_chain.apply_async()
         return result.id

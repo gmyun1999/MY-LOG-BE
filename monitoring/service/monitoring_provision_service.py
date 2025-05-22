@@ -12,6 +12,10 @@ from monitoring.domain.task_result import (
 from monitoring.infra.celery.task_executor.grafana_executor import GrafanaTaskExecutor
 from monitoring.infra.grafana.grafana_template_provider import GrafanaTemplateProvider
 from monitoring.infra.repo.task_result_repo import TaskResultRepo
+from monitoring.service.i_executors.excutor_DTO import (
+    BaseProvisionDTO,
+    DashboardProvisionDTO,
+)
 from monitoring.service.i_executors.monitoring_dashboard_executor import (
     MonitoringDashboardTaskExecutor,
 )
@@ -93,7 +97,7 @@ class MonitoringProvisionService:
         account_name = self._make_account_name(user.id)
         token_name = self._make_token_name(user.id)
 
-        return self.task_executor.dispatch_provision_base_resources_workflow(
+        base_dto = BaseProvisionDTO(
             user=user,
             folder_task_id=folder_task_id,
             account_task_id=account_task_id,
@@ -106,39 +110,25 @@ class MonitoringProvisionService:
             token_name=token_name,
         )
 
+        return self.task_executor.dispatch_provision_base_resources_workflow(
+            base_dto=base_dto,
+        )
+
     def provision_dashboard(
         self,
         user: User,
+        skip_base_provisioning: bool = False,  # 기본 리소스 스킵 여부
     ) -> str:
         """
-        <대시보드 프로비저닝>
-
-        1. dashboard template 생성
-        (worker dispatch)
-        2. 기본리소스 프로비저닝
-        3. 대시보드 템플릿 생성
-        4. 퍼블릭 대시보드 생성
+        1) dashboard template 생성
+        2) Task ID 생성 (skip 여부에 따라)
+        3) BaseProvisionDTO / DashboardProvisionDTO 생성
+        4) dispatch
         """
+
         dash_board_template = self.create_logs_dashboard_template(user)
 
-        folder_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER
-        )
-        account_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_ACCOUNT
-        )
-        token_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_TOKEN
-        )
-        perm_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.SET_FOLDER_PERMISSIONS
-        )
-        wrap_token_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.WRAP_CREATE_DASHBOARD_SERVICE_TOKEN
-        )
-        wrap_perm_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.WRAP_SET_FOLDER_PERMISSIONS
-        )
+        # Dashboard 관련 Task ID
         wrap_dash_task_id = self._save_task_pending(
             MonitoringDashboardTaskName.WRAP_CREATE_DASHBOARD
         )
@@ -151,27 +141,58 @@ class MonitoringProvisionService:
         pub_task_id = self._save_task_pending(
             MonitoringDashboardTaskName.CREATE_PUBLIC_DASHBOARD
         )
-        # 이름 생성
-        folder_name = self._make_folder_name(user.id, user.name)
-        account_name = self._make_account_name(user.id)
-        token_name = self._make_token_name(user.id)
 
-        # 3) 워크플로우 디스패치
-        return self.task_executor.dispatch_provision_dashboard_workflow(
+        # 기본 리소스 Task ID는 skip 여부에 따라 생성
+        if not skip_base_provisioning:
+            folder_task_id = self._save_task_pending(
+                MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER
+            )
+            account_task_id = self._save_task_pending(
+                MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_ACCOUNT
+            )
+            token_task_id = self._save_task_pending(
+                MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_TOKEN
+            )
+            perm_task_id = self._save_task_pending(
+                MonitoringDashboardTaskName.SET_FOLDER_PERMISSIONS
+            )
+            wrap_token_task_id = self._save_task_pending(
+                MonitoringDashboardTaskName.WRAP_CREATE_DASHBOARD_SERVICE_TOKEN
+            )
+            wrap_perm_task_id = self._save_task_pending(
+                MonitoringDashboardTaskName.WRAP_SET_FOLDER_PERMISSIONS
+            )
+
+            folder_name = self._make_folder_name(user.id, user.name)
+            account_name = self._make_account_name(user.id)
+            token_name = self._make_token_name(user.id)
+
+            base_dto = BaseProvisionDTO(
+                user=user,
+                folder_task_id=folder_task_id,
+                account_task_id=account_task_id,
+                wrap_create_token_task_id=wrap_token_task_id,
+                wrap_set_perm_task_id=wrap_perm_task_id,
+                token_task_id=token_task_id,
+                perm_task_id=perm_task_id,
+                folder_name=folder_name,
+                account_name=account_name,
+                token_name=token_name,
+            )
+        else:
+            base_dto = None
+
+        dash_dto = DashboardProvisionDTO(
             user=user,
-            folder_task_id=folder_task_id,
-            account_task_id=account_task_id,
-            wrap_create_token_task_id=wrap_token_task_id,
-            wrap_set_perm_task_id=wrap_perm_task_id,
-            token_task_id=token_task_id,
-            perm_task_id=perm_task_id,
             wrap_create_dashboard_task_id=wrap_dash_task_id,
             wrap_create_public_dashboard_task_id=wrap_pub_task_id,
             dashboard_task_id=dash_task_id,
             public_dashboard_task_id=pub_task_id,
-            folder_name=folder_name,
-            account_name=account_name,
-            token_name=token_name,
             dashboard_title=self._make_dashboard_title(user),
             dashboard_json_config=dash_board_template,
+        )
+
+        return self.task_executor.dispatch_provision_dashboard_workflow(
+            dash_dto=dash_dto,
+            base_dto=base_dto,
         )

@@ -17,9 +17,9 @@ class Command(BaseCommand):
         # create_user_folder = monitoring_dashboard_service.create_service_token(service_account_id=38, user_id="33333")
         # create_user_folder = monitoring_dashboard_service.set_folder_permissions(folder_uid="deml5in247x8ga", service_account_id=38)
         user = User(
-            id="test_user999",
-            name="Test User999",
-            email="test_user999@example.com",
+            id="effqwqwffqwqwfd",
+            name="effqwqwffqwqwfd",
+            email="effqwqwffqwqwfd@example.com",
             mobile_no="010-1324-5678",
             oauth_id="test_user999",
             oauth_type=OAuthType.KAKAO,
