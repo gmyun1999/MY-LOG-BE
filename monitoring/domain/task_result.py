@@ -33,6 +33,8 @@ class MonitoringDashboardTaskName(StrEnum):
     GET_GRAFANA_DASHBOARD = "get_grafana_dashboard"
     GET_GRAFANA_FOLDERS = "get_grafana_folders"
 
+    FINALIZE_DASHBOARD = "finalize_dashboard"
+
 
 @dataclass
 class TaskResult(Domain):

@@ -17,5 +17,6 @@ class AgentProvisioningContext(BaseModel):
     logstash_dir: str = "logstash-9.0.1"
 
     script_name: str = "setup-agent.bat"
+    set_up_script_url: str | None = None
     timestamp: int | None = None
     platform: PlatformType = PlatformType.WINDOWS

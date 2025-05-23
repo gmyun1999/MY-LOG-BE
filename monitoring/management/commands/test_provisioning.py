@@ -62,7 +62,7 @@ class Command(BaseCommand):
 
         # 서비스 호출
         svc = HarvesterAgentService()
-        urls = svc.download_agent_set_up_script(
+        urls = svc.download_log_agent_set_up_script(
             resource_id=resource_id,
             log_collector_ctx=collector_ctx,
             log_router_ctx=router_context,

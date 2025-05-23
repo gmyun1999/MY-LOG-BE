@@ -21,6 +21,12 @@ class LockingTask(Task):
     reject_on_worker_lost = True
 
     def __call__(self, *args, **kwargs):
+        # chord task의 경우 args[0]이 list로 들어옴 이거 지우기
+        if args and isinstance(args[0], list):
+            # _results: header 결과, task_result_id: 실제 ID
+            _results, task_result_id, *rest = args
+            args = (task_result_id, *rest)
+
         task_result_id = args[0]
         lock_key = f"lock:dashboard:{task_result_id}"
         proc_key = f"done:dashboard:{task_result_id}"
@@ -28,23 +34,18 @@ class LockingTask(Task):
 
         logger.info(f"태스크 실행 시작: {self.name}, ID: {task_result_id}")
 
-        if redis_client.exists(proc_key):
-            if hasattr(self.request, "acknowledge"):
-                self.request.acknowledge()
-            raise Ignore(f"{task_result_id} already processed")
-
-        if not redis_client.set(lock_key, token, nx=True, ex=LOCK_EXPIRE):
-            if hasattr(self.request, "acknowledge"):
-                self.request.acknowledge()
-            raise Ignore(f"Task {task_result_id} is already running")
-
         try:
-            # 태스크 결과 정보 로그
-            try:
-                task_result = TaskResultModel.objects.get(id=task_result_id)
-            except Exception as e:
-                logger.error(f"태스크 정보 조회 실패: {e}")
+            if redis_client.exists(proc_key):
+                if hasattr(self.request, "acknowledge"):
+                    self.request.acknowledge()
+                raise Ignore(f"{task_result_id} already processed")
 
+            if not redis_client.set(lock_key, token, nx=True, ex=LOCK_EXPIRE):
+                if hasattr(self.request, "acknowledge"):
+                    self.request.acknowledge()
+                raise Ignore(f"Task {task_result_id} is already running")
+
+            # 태스크 실행
             result = self.run(*args, **kwargs)
             logger.info(f"태스크 {task_result_id} 성공적으로 완료: {result}")
 

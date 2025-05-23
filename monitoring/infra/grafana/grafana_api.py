@@ -66,7 +66,7 @@ class GrafanaAPI(VisualizationPlatformProvider):
 
     @override
     def set_folder_permissions(
-        self, folder_uid: str, service_account_id: str, permission: int = 1
+        self, folder_uid: str, service_account_id: int, permission: int = 1
     ) -> dict[str, Any]:
         """
         폴더 권한 설정 - Grafana 12.0.0 버전용

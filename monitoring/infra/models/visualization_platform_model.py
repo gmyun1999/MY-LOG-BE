@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 from monitoring.domain.visualization_platform.folder import FolderPermissionLevel
 from user.infra.models.user import User
@@ -42,6 +44,16 @@ class DashboardModel(models.Model):
         User,
         to_field="id",
         on_delete=models.DO_NOTHING,
+        db_constraint=False,
+        null=True,
+        blank=True,
+    )
+
+    project = models.OneToOneField(
+        "monitoring.MonitoringProjectModel",
+        to_field="id",
+        on_delete=models.CASCADE,
+        related_name="dashboard_model",
         db_constraint=False,
         null=True,
         blank=True,
@@ -106,3 +118,23 @@ class UserFolderModel(models.Model):
 
     class Meta:
         db_table = "visualization_folder"
+
+
+@receiver(post_save, sender=DashboardModel)
+def set_dashboard_on_project(sender, instance: DashboardModel, created: bool, **kwargs):
+    if not created or not instance.project_id:
+        return
+
+    from monitoring.infra.models.monitoring_project_model import MonitoringProjectModel
+
+    try:
+        # MonitoringProjectModel을 찾는다
+        project = MonitoringProjectModel.objects.get(id=instance.project_id)
+    except MonitoringProjectModel.DoesNotExist:
+        # 연결된 프로젝트가 존재하지 않으면 무시
+        return
+
+    # 프로젝트의 dashboard 필드에 "나 자신"을 설정한다
+    if project.dashboard_id != instance.id:
+        project.dashboard_id = instance.id
+        project.save(update_fields=["dashboard"])

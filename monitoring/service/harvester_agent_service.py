@@ -64,18 +64,18 @@ class HarvesterAgentService:
             data=gen.content, key=key, content_type=content_type
         )
 
-    def download_agent_set_up_script(
+    def download_log_agent_set_up_script(
         self,
         resource_id: str,
         log_collector_ctx: LogCollectorConfigContext,
         log_router_ctx: LogRouterConfigContext,
         platform: PlatformType,
-    ) -> dict[str, str]:
+    ) -> AgentProvisioningContext:
         """
         1) collector/router config 생성
         2) bootstrap 스크립트 생성
         3) 모두 S3에 업로드
-        4) URL 반환
+        4) AgentProvisioningContext 반환
 
         :param resource_id: 프로젝트 식별자
         :param log_ctx: 로그 에이전트 설정 컨텍스트
@@ -109,12 +109,15 @@ class HarvesterAgentService:
         )
         bootstrap_cfg = self.create_agent_set_up_script(bootstrap_ctx)
 
-        return {
-            "collector_config_url": self._upload_generated(
-                resource_id, collector_cfg, ts
-            ),
-            "router_config_url": self._upload_generated(resource_id, router_cfg, ts),
-            "bootstrap_script_url": self._upload_generated(
-                resource_id, bootstrap_cfg, ts
-            ),
-        }
+        collector_upload_url = self._upload_generated(resource_id, collector_cfg, ts)
+        router_upload_url = self._upload_generated(resource_id, router_cfg, ts)
+        bootstrap_upload_url = self._upload_generated(resource_id, bootstrap_cfg, ts)
+
+        return AgentProvisioningContext(
+            base_static_url=agent_base_url,
+            collector_config_url=collector_upload_url,
+            router_config_url=router_upload_url,
+            set_up_script_url=bootstrap_upload_url,
+            timestamp=ts,
+            platform=platform,
+        )

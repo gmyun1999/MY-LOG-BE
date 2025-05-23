@@ -133,7 +133,7 @@ USE_I18N = True
 USE_TZ = True
 
 # Celery Configuration
-CELERY_RESULT_BACKEND = None
+CELERY_RESULT_BACKEND = "django-db"
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BROKER_URL = env(
     "CELERY_BROKER_URL", default="amqp://guest:guest@localhost:5672/%2F"

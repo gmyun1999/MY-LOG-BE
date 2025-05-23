@@ -17,6 +17,7 @@ class Dashboard(Domain):
     FIELD_UID = "uid"
     FIELD_TITLE = "title"
     FIELD_USER_ID = "user_id"
+    FIELD_PROJECT_ID = "project_id"
     FIELD_ORG_ID = "org_id"
     FIELD_FOLDER_UID = "folder_uid"
     FIELD_URL = "url"
@@ -29,6 +30,7 @@ class Dashboard(Domain):
     uid: str | None  # 플랫폼 내부에서 사용하는 pk
     title: str | None  # 대시보드 제목
     user_id: str | None  # 우리 서비스 내부에서 사용하는 사용자 ID
+    project_id: str | None  # 대시보드가 속한 프로젝트 ID
     org_id: str | None  # 대시보드가 속한 조직 ID
     folder_uid: str | None  # 속해 있는 폴더의 UID
     url: str | None  # 대시보드에 접근하기 위한 URL

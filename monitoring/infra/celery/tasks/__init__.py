@@ -7,3 +7,7 @@ from .grafana_tasks import (
     task_get_grafana_folders,
     task_set_grafana_folder_permissions,
 )
+from .monitoring_project_tasks import (
+    finalize_monitoring_project,
+    handle_monitoring_project_failure,
+)
