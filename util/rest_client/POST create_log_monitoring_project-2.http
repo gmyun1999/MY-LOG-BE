@@ -1,0 +1,8 @@
+POST {{mylog-host}}/monitoring/log-project/step2
+Content-Type: application/json
+Authorization: Bearer {{mylog-jwt}}
+
+{
+  "project_id": "5fb7aa4a-4ad2-4d7d-b81f-33809bdd575b"
+}
+

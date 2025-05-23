@@ -1,0 +1,36 @@
+POST {{mylog-host}}/monitoring/log-project/step1
+Content-Type: application/json
+Authorization: Bearer {{mylog-jwt}}
+
+{
+  "project_name": "MyLog Monitoring Project",
+  "project_description": "Monitoring project for MyLog",
+  "log_paths": ["/var/log/app.log"],
+  "multiline_pattern": "^(INFO|WARN|ERROR)",
+  "timestamp_field": null,
+  "timestamp_json_path": null,
+  "log_level": null,
+  "log_level_json_path": null,
+  "custom_json_fields": [],
+  "custom_plain_fields": [
+    "level",
+    "<timestamp>",
+    "|",
+    "module",
+    "||",
+    "[msg_detail]"
+  ],
+  "filters": [
+    {
+      "field": "level",
+      "operator": "EQUALS",
+      "value": "ERROR"
+    },
+    {
+      "field": "level",
+      "operator": "EQUALS",
+      "value": "WARN"
+    }
+  ],
+  "platform": "windows"
+}
