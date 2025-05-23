@@ -4,6 +4,7 @@ from enum import StrEnum
 from common.domain import Domain
 from monitoring.domain.log_agent.agent_provision_context import AgentProvisioningContext
 from monitoring.domain.visualization_platform import service_account
+from monitoring.domain.visualization_platform.dashboard import Dashboard
 
 
 class MonitoringType(StrEnum):
@@ -20,6 +21,18 @@ class ProjectStatus(StrEnum):
 
 @dataclass
 class MonitoringProject(Domain):
+
+    FIELD_ID = "id"
+    FIELD_USER_ID = "user_id"
+    FIELD_NAME = "name"
+    FIELD_PROJECT_TYPE = "project_type"
+    FIELD_STATUS = "status"
+    FIELD_SERVICE_ACCOUNT_ID = "service_account_id"
+    FIELD_DESCRIPTION = "description"
+    FIELD_DASHBOARD_ID = "dashboard_id"
+    FIELD_USER_FOLDER_ID = "user_folder_id"
+    FIELD_AGENT_CONTEXT = "agent_context"
+
     id: str
     user_id: str
     name: str
@@ -29,4 +42,29 @@ class MonitoringProject(Domain):
     description: str | None = None
     dashboard_id: str | None = None
     user_folder_id: str | None = None
+    agent_context: AgentProvisioningContext | None = None
+
+
+@dataclass
+class MonitoringProjectWithDashboardDto(Domain):
+    FIELD_ID = "id"
+    FIELD_USER_ID = "user_id"
+    FIELD_NAME = "name"
+    FIELD_PROJECT_TYPE = "project_type"
+    FIELD_STATUS = "status"
+    FIELD_SERVICE_ACCOUNT_ID = "service_account_id"
+    FIELD_DASHBOARD = "dashboard"
+    FIELD_USER_FOLDER_ID = "user_folder_id"
+    FIELD_AGENT_CONTEXT = "agent_context"
+    FIELD_DESCRIPTION = "description"
+
+    id: str
+    user_id: str
+    name: str
+    project_type: MonitoringType
+    status: ProjectStatus
+    service_account_id: str | None = None
+    description: str | None = None
+    user_folder_id: str | None = None
+    dashboard: Dashboard | None = None
     agent_context: AgentProvisioningContext | None = None

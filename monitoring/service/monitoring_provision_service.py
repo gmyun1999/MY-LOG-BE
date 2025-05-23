@@ -110,54 +110,6 @@ class MonitoringProvisionService:
         # base provisioning이 필요하지 않음
         return False
 
-    def provision_base_resources(self, user: User, monitoring_project_id: str) -> str:
-        """
-        기본 리소스 프로비저닝
-        1) 사용자 폴더 생성
-        2) 서비스 계정 생성
-        3) 서비스 토큰 생성 (wrapper)
-        4) 폴더 권한 설정 (wrapper)
-        전체 단계를 하나의 chain 으로 묶어 실행
-        """
-        if self.folder_repo.find_by_user_id(user.id):
-            raise AlreadyExistException(
-                message="사용자별로 유저폴더는 하나만 생성 가능"
-            )
-
-        folder_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER
-        )
-        account_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_ACCOUNT
-        )
-        token_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_TOKEN
-        )
-        perm_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.SET_FOLDER_PERMISSIONS
-        )
-        folder_name = self._make_folder_name(user.id, user.name)
-        account_name = self._make_account_name(
-            user.id, project_id=monitoring_project_id
-        )
-        token_name = self._make_token_name(user.id, project_id=monitoring_project_id)
-
-        base_dto = BaseProvisionDTO(
-            user=user,
-            folder_task_id=folder_task_id,
-            account_task_id=account_task_id,
-            project_id=monitoring_project_id,
-            token_task_id=token_task_id,
-            perm_task_id=perm_task_id,
-            folder_name=folder_name,
-            account_name=account_name,
-            token_name=token_name,
-        )
-
-        return self.task_executor.dispatch_provision_base_resources_workflow(
-            base_dto=base_dto,
-        )
-
     def provision_log_dashboard(
         self,
         user: User,

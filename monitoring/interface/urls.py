@@ -4,6 +4,12 @@ from monitoring.interface.views.log_monitoring_project_views import (
     LogMonitoringProjectStep1View,
     LogMonitoringProjectStep2View,
 )
+from monitoring.interface.views.my_monitoring_project_views import (
+    MyMonitoringProjectView,
+)
+from monitoring.interface.views.my_monitoring_projects_view import (
+    MyMonitoringProjectsView,
+)
 
 urlpatterns = [
     path(
@@ -16,9 +22,14 @@ urlpatterns = [
         LogMonitoringProjectStep2View.as_view(),
         name="logProjectStep2",
     ),
+    path(  # 내 모니터링 프로젝트 목록
+        "monitoring/project/<str:project_id>/",
+        MyMonitoringProjectView.as_view(),
+        name="monitoring-project-detail",
+    ),
     path(
-        "monitoring/project/me",
-        LogMonitoringProjectStep2View.as_view(),
-        name="logProjectMe",
+        "monitoring/projects/",
+        MyMonitoringProjectsView.as_view(),
+        name="monitoring-projects-list",
     ),
 ]

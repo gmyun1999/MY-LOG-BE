@@ -1,6 +1,9 @@
 from abc import abstractmethod
 
-from monitoring.domain.monitoring_project import MonitoringProject
+from monitoring.domain.monitoring_project import (
+    MonitoringProject,
+    MonitoringProjectWithDashboardDto,
+)
 
 
 class IMonitoringProjectRepo:
@@ -18,3 +21,13 @@ class IMonitoringProjectRepo:
 
     @abstractmethod
     def exists_by_id_and_user_id(self, project_id: str, user_id: str) -> bool: ...
+
+    @abstractmethod
+    def find_with_dashboard_dto(
+        self, project_id: str
+    ) -> MonitoringProjectWithDashboardDto | None: ...
+
+    @abstractmethod
+    def find_all_with_dashboard_dto_by_user(
+        self, user_id: str
+    ) -> list[MonitoringProjectWithDashboardDto]: ...

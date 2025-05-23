@@ -17,22 +17,10 @@ class TaskStatus(StrEnum):
 class MonitoringDashboardTaskName(StrEnum):
     CREATE_DASHBOARD_USER_FOLDER = "create_dashboard_user_folder"
     CREATE_DASHBOARD_SERVICE_ACCOUNT = "create_dashboard_service_account"
-
     CREATE_DASHBOARD_SERVICE_TOKEN = "create_dashboard_service_token"
-    WRAP_CREATE_DASHBOARD_SERVICE_TOKEN = "wrap_create_dashboard_service_token"
-
     SET_FOLDER_PERMISSIONS = "set_folder_permissions"
-    WRAP_SET_FOLDER_PERMISSIONS = "wrap_set_folder_permissions"
-
     CREATE_DASHBOARD = "create_dashboard"
-    WRAP_CREATE_DASHBOARD = "wrap_create_dashboard"
-
     CREATE_PUBLIC_DASHBOARD = "create_public_dashboard"
-    WRAP_CREATE_PUBLIC_DASHBOARD = "wrap_create_public_dashboard"
-
-    GET_GRAFANA_DASHBOARD = "get_grafana_dashboard"
-    GET_GRAFANA_FOLDERS = "get_grafana_folders"
-
     FINALIZE_DASHBOARD = "finalize_dashboard"
 
 

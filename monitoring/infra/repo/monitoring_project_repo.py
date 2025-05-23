@@ -1,10 +1,14 @@
+from dataclasses import fields
+
 from monitoring.domain.i_repo.i_monitoring_project_repo import IMonitoringProjectRepo
 from monitoring.domain.monitoring_project import (
     AgentProvisioningContext,
     MonitoringProject,
+    MonitoringProjectWithDashboardDto,
     MonitoringType,
     ProjectStatus,
 )
+from monitoring.domain.visualization_platform.dashboard import Dashboard
 from monitoring.infra.models.monitoring_project_model import MonitoringProjectModel
 
 
@@ -61,3 +65,57 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
         return MonitoringProjectModel.objects.filter(
             id=project_id, user_id=user_id
         ).exists()
+
+    def find_with_dashboard_dto(
+        self, project_id: str
+    ) -> MonitoringProjectWithDashboardDto | None:
+        DASHBOARD_FIELD_KEYS = [
+            Dashboard.FIELD_ID,
+            Dashboard.FIELD_UID,
+            Dashboard.FIELD_TITLE,
+            Dashboard.FIELD_FOLDER_UID,
+            Dashboard.FIELD_URL,
+        ]
+        # 1) 기존처럼 도메인 객체 조회
+        project_domain = self.find_by_id(project_id)
+        if project_domain is None:
+            return None
+
+        # 기본 필드 직렬화 (agent_context 제외)
+        project_dict = project_domain.to_dict(
+            excludes=[MonitoringProject.FIELD_AGENT_CONTEXT]
+        )
+
+        # Dashboard 모델에서 dict 생성
+        dashboard_model = (
+            MonitoringProjectModel.objects.select_related("dashboard")
+            .get(id=project_id)
+            .dashboard
+        )
+        dashboard_dict = {
+            key: getattr(dashboard_model, key) for key in DASHBOARD_FIELD_KEYS
+        }
+
+        # combined 에 agent_context 없이 넣기
+        combined = {
+            **project_dict,
+            "dashboard": dashboard_dict,
+        }
+
+        return MonitoringProjectWithDashboardDto.from_dict(combined)
+
+    def find_all_with_dashboard_dto_by_user(
+        self, user_id: str
+    ) -> list[MonitoringProjectWithDashboardDto]:
+        # 1) 사용자 프로젝트 ID 목록 조회
+        ids = MonitoringProjectModel.objects.filter(user_id=user_id).values_list(
+            "id", flat=True
+        )
+
+        # 2) 각 ID별로 DTO 생성
+        dtos: list[MonitoringProjectWithDashboardDto] = []
+        for pid in ids:
+            dto = self.find_with_dashboard_dto(pid)
+            if dto is not None:
+                dtos.append(dto)
+        return dtos

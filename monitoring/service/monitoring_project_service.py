@@ -2,6 +2,8 @@ import uuid
 
 from django.db import transaction
 
+from common.domain import PagedResult
+from common.service.paging import Paginator
 from monitoring.domain.i_repo.i_monitoring_project_repo import IMonitoringProjectRepo
 from monitoring.domain.log_agent.agent_provision_context import (
     AgentProvisioningContext,
@@ -11,6 +13,7 @@ from monitoring.domain.log_agent.log_collector import LogCollectorConfigContext
 from monitoring.domain.log_agent.log_router import LogRouterConfigContext
 from monitoring.domain.monitoring_project import (
     MonitoringProject,
+    MonitoringProjectWithDashboardDto,
     MonitoringType,
     ProjectStatus,
 )
@@ -59,6 +62,21 @@ class MonitoringProjectService:
         )
         self.project_repo.save(project)
         return project
+
+    def get_project_detail(self, project_id: str) -> MonitoringProjectWithDashboardDto:
+        project_with_dashboard = self.project_repo.find_with_dashboard_dto(project_id)
+        if not project_with_dashboard:
+            raise NotExistException()
+        return project_with_dashboard
+
+    def get_my_projects_detail(
+        self,
+        user_id: str,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> PagedResult[MonitoringProjectWithDashboardDto]:
+        all_dtos = self.project_repo.find_all_with_dashboard_dto_by_user(user_id)
+        return Paginator.paginate(all_dtos, page=page, page_size=page_size)
 
     def start_log_project_step1(
         self,

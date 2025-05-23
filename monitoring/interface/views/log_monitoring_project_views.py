@@ -68,7 +68,7 @@ class LogMonitoringProjectStep1View(APIView):
         },
     )
     @validate_token(
-        roles=[UserRole.USER, UserRole.ADMIN], validate_type=UserTokenType.ACCESS
+        roles=[UserRole.USER, UserRole.USER], validate_type=UserTokenType.ACCESS
     )
     @validate_body(Step1Request)
     def post(self, request, token_payload: UserTokenPayload, body: Step1Request):
@@ -155,7 +155,7 @@ class LogMonitoringProjectStep2View(APIView):
         },
     )
     @validate_token(
-        roles=[UserRole.USER, UserRole.ADMIN], validate_type=UserTokenType.ACCESS
+        roles=[UserRole.USER, UserRole.USER], validate_type=UserTokenType.ACCESS
     )
     @validate_body(Step2Request)
     def post(self, request, token_payload: UserTokenPayload, body: Step2Request):
@@ -175,7 +175,3 @@ class LogMonitoringProjectStep2View(APIView):
                 message=e.message,
                 detail=e.detail,
             )
-
-
-class MyMonitoringProject(APIView):
-    pass
