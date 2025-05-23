@@ -36,6 +36,6 @@ class Command(BaseCommand):
             project_type=MonitoringType.LOG,
             description="test_project_description",
         )
-        provision_user_folder = monitoring_dashboard_service.provision_log_dashboard(
-            user=user, monitoring_project_id=project.id, skip_base_provisioning=False
-        )
+        # provision_user_folder = monitoring_dashboard_service.provision_log_dashboard(
+        #     user=user, monitoring_project_id=project.id, skip_base_provisioning=False
+        # )

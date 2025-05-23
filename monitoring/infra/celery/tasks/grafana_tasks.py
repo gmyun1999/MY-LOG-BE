@@ -179,15 +179,15 @@ def task_create_grafana_dashboard(
 
 
 @locking_task(max_retries=3, default_retry_delay=2)
-def task_create_grafana_public_dashboard(self, task_id: str, user_id: str):
+def task_create_grafana_public_dashboard(self, task_id: str, project_id: str):
     """
     그라파나 퍼블릭 대시보드 생성 태스크
     """
-    dashboard = dashboard_repo.find_by_user_id(user_id)
+    dashboard = dashboard_repo.find_by_project_id(project_id)
     if dashboard is None:
-        raise RuntimeError(f"No Grafana dashboard for user {user_id}")
+        raise RuntimeError(f"No Grafana dashboard for project {project_id}")
     if dashboard.uid is None:
-        raise RuntimeError(f"Dashboard UID is None for user {user_id}")
+        raise RuntimeError(f"Dashboard UID is None for project {project_id}")
 
     result = grafana_api.create_public_dashboard(dashboard.uid)
 

@@ -134,8 +134,6 @@ class MonitoringProjectService:
             raise NotExistException()
 
         self.check_permission(user, project_id)
-        if project.status == ProjectStatus.FAILED:
-            raise NotImplementedException()
 
         if project.status == ProjectStatus.READY:
             raise AlreadyExistException()
@@ -143,15 +141,7 @@ class MonitoringProjectService:
         if project.status == ProjectStatus.IN_PROGRESS:
             raise AlreadyProvisioningException()
 
-        need_base_provisioning = (
-            self.monitoring_provision_service.check_if_need_base_provisioning(
-                user, project_id
-            )
-        )
-
         # 로그 대시보드 프로비저닝
         self.monitoring_provision_service.provision_log_dashboard(
-            user=user,
-            monitoring_project_id=project_id,
-            skip_base_provisioning=not need_base_provisioning,
+            user=user, monitoring_project_id=project_id
         )

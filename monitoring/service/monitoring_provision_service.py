@@ -34,10 +34,15 @@ from monitoring.infra.repo.visualization_platform_repo.folder_repo import Folder
 from monitoring.infra.repo.visualization_platform_repo.service_account_repo import (
     ServiceAccountRepo,
 )
-from monitoring.service.exceptions import AlreadyExistException
 from monitoring.service.i_executors.excutor_DTO import (
-    BaseProvisionDTO,
-    DashboardProvisionDTO,
+    CreateDashboardDTO,
+    CreatePublicDashboardDTO,
+    CreateServiceAccountDTO,
+    CreateServiceTokenDTO,
+    CreateUserFolderDTO,
+    FinalizeDashboardDTO,
+    ProvisionFailureDTO,
+    SetFolderPermissionsDTO,
 )
 from monitoring.service.i_executors.visualization_platform_executor import (
     VisualizationPlatformTaskExecutor,
@@ -92,109 +97,126 @@ class MonitoringProvisionService:
             dashboard_uid=str(uuid.uuid4()),
         )
 
-    def check_if_need_base_provisioning(self, user: User, project_id: str) -> bool:
-        folder = self.folder_repo.find_by_user_id(user.id)
-        if folder is None:
-            return True
-
-        service_account = self.account_repo.find_by_project_id(project_id)
-        if service_account is None:
-            return True
-
-        permission = self.folder_permissions_repo.find_by_service_account_id(
-            service_account.id
-        )
-        if permission is None:
-            return True
-
-        # base provisioning이 필요하지 않음
-        return False
-
     def provision_log_dashboard(
         self,
         user: User,
         monitoring_project_id: str,
-        skip_base_provisioning: bool = False,  # 기본 리소스 스킵 여부
     ) -> str:
-        """
-        1) dashboard template 생성
-        2) Task ID 생성 (skip 여부에 따라)
-        3) BaseProvisionDTO / DashboardProvisionDTO 생성
-        4) dispatch
-        """
+        # 1) DTO 생성 task 저장은 bulk로 처리함
 
-        # 기본 리소스 Task ID는 skip 여부에 따라 생성
-        if not skip_base_provisioning:
-
-            if self.folder_repo.find_by_user_id(user.id):
-                raise AlreadyExistException(
-                    message="사용자별로 유저폴더는 하나만 생성 가능"
-                )
-
-            folder_task_id = self._save_task_pending(
-                MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER
-            )
-            account_task_id = self._save_task_pending(
-                MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_ACCOUNT
-            )
-            token_task_id = self._save_task_pending(
-                MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_TOKEN
-            )
-            perm_task_id = self._save_task_pending(
-                MonitoringDashboardTaskName.SET_FOLDER_PERMISSIONS
+        user_folder_dto = None
+        if not self.folder_repo.find_by_user_id(user.id):
+            folder_id = str(uuid.uuid4())
+            user_folder_dto = CreateUserFolderDTO(
+                task_id=folder_id,
+                user_id=user.id,
+                folder_name=self._make_folder_name(user.id, user.name),
             )
 
-            folder_name = self._make_folder_name(user.id, user.name)
-            account_name = self._make_account_name(
-                user.id, project_id=monitoring_project_id
-            )
-            token_name = self._make_token_name(
-                user.id, project_id=monitoring_project_id
-            )
-
-            base_dto = BaseProvisionDTO(
-                user=user,
-                folder_task_id=folder_task_id,
-                account_task_id=account_task_id,
+        service_account = self.account_repo.find_by_project_id(monitoring_project_id)
+        service_account_dto = None
+        if not service_account:
+            account_id = str(uuid.uuid4())
+            service_account_dto = CreateServiceAccountDTO(
+                task_id=account_id,
                 project_id=monitoring_project_id,
-                token_task_id=token_task_id,
-                perm_task_id=perm_task_id,
-                folder_name=folder_name,
-                account_name=account_name,
-                token_name=token_name,
-            )
-        else:
-            base_dto = None
-
-        if self.dashboard_repo.find_by_project_id(project_id=monitoring_project_id):
-            raise AlreadyExistException(
-                message="프로젝트당 대시보드는 하나만 생성 가능"
+                account_name=self._make_account_name(user.id, monitoring_project_id),
+                user_id=user.id,
             )
 
-        dash_board_template = self.create_logs_dashboard_template(user)
+        service_token_dto = None
+        if (service_account_dto or service_account) and not (
+            service_account and service_account.token
+        ):
+            token_id = str(uuid.uuid4())
+            service_token_dto = CreateServiceTokenDTO(
+                task_id=token_id,
+                project_id=monitoring_project_id,
+                token_name=self._make_token_name(user.id, monitoring_project_id),
+            )
 
-        # Dashboard 관련 Task ID
-        dash_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD
-        )
-        pub_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_PUBLIC_DASHBOARD
-        )
-        finalize_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.FINALIZE_DASHBOARD
-        )
+        perm = None
+        if service_account:
+            perm = self.folder_permissions_repo.find_by_service_account_id(
+                service_account.id
+            )
+        permissions_dto = None
+        if not perm:
+            perm_id = str(uuid.uuid4())
+            permissions_dto = SetFolderPermissionsDTO(
+                task_id=perm_id,
+                user_id=user.id,
+                project_id=monitoring_project_id,
+            )
 
-        dash_dto = DashboardProvisionDTO(
-            user=user,
-            dashboard_task_id=dash_task_id,
-            public_dashboard_task_id=pub_task_id,
-            dashboard_title=self._make_dashboard_title(user),
-            dashboard_json_config=dash_board_template,
+        exists = self.dashboard_repo.find_by_project_id(
+            project_id=monitoring_project_id
+        )
+        dashboard_dto = public_dto = None
+        if not exists:
+            dash_id = str(uuid.uuid4())
+            dashboard_dto = CreateDashboardDTO(
+                task_id=dash_id,
+                user_id=user.id,
+                project_id=monitoring_project_id,
+                dashboard_title=self._make_dashboard_title(user),
+                dashboard_config=self.create_logs_dashboard_template(user),
+            )
+            pub_id = str(uuid.uuid4())
+            public_dto = CreatePublicDashboardDTO(
+                task_id=pub_id,
+                project_id=monitoring_project_id,
+            )
+
+        finalize_id = str(uuid.uuid4())
+        finalize_dto = FinalizeDashboardDTO(
+            task_id=finalize_id,
+            user_id=user.id,
             project_id=monitoring_project_id,
-            finalize_task_id=finalize_task_id,
+        )
+        failure_dto = ProvisionFailureDTO(
+            task_id=finalize_id,
+            project_id=monitoring_project_id,
         )
 
+        # 2) bulk PENDING TaskResult 생성
+        now = timezone.now().isoformat()
+        to_upsert: list[TaskResult] = []
+        for dto, name in [
+            (user_folder_dto, MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER),
+            (
+                service_account_dto,
+                MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_ACCOUNT,
+            ),
+            (
+                service_token_dto,
+                MonitoringDashboardTaskName.CREATE_DASHBOARD_SERVICE_TOKEN,
+            ),
+            (permissions_dto, MonitoringDashboardTaskName.SET_FOLDER_PERMISSIONS),
+            (dashboard_dto, MonitoringDashboardTaskName.CREATE_DASHBOARD),
+            (public_dto, MonitoringDashboardTaskName.CREATE_PUBLIC_DASHBOARD),
+            (finalize_dto, MonitoringDashboardTaskName.FINALIZE_DASHBOARD),
+        ]:
+            if dto:
+                to_upsert.append(
+                    TaskResult(
+                        id=dto.task_id,
+                        task_name=name.value,
+                        status=TaskStatus.PENDING,
+                        date_created=now,
+                    )
+                )
+        if to_upsert:
+            self.task_result_repo.bulk_upsert(to_upsert)
+
+        # 3) dispatch
         return self.task_executor.dispatch_provision_dashboard_workflow(
-            dash_dto=dash_dto,
-            base_dto=base_dto,
+            user_folder=user_folder_dto,
+            service_account=service_account_dto,
+            service_token=service_token_dto,
+            permissions=permissions_dto,
+            dashboard=dashboard_dto,
+            public_dashboard=public_dto,
+            finalize_dashboard=finalize_dto,
+            failure=failure_dto,
         )

@@ -1,3 +1,5 @@
+from typing import Any
+
 from celery import chain
 from typing_extensions import override
 
@@ -18,7 +20,15 @@ from monitoring.infra.celery.tasks.monitoring_project_tasks import (
 )
 from monitoring.service.i_executors.excutor_DTO import (
     BaseProvisionDTO,
+    CreateDashboardDTO,
+    CreatePublicDashboardDTO,
+    CreateServiceAccountDTO,
+    CreateServiceTokenDTO,
+    CreateUserFolderDTO,
     DashboardProvisionDTO,
+    FinalizeDashboardDTO,
+    ProvisionFailureDTO,
+    SetFolderPermissionsDTO,
 )
 from monitoring.service.i_executors.visualization_platform_executor import (
     VisualizationPlatformTaskExecutor,
@@ -72,8 +82,8 @@ class GrafanaTaskExecutor(VisualizationPlatformTaskExecutor):
             task_id, user_id, project_id, dashboard_title, dashboard_config
         ).set(task_id=task_id)
 
-    def get_create_public_dashboard_sig(self, task_id: str, user_id: str):
-        return task_create_grafana_public_dashboard.si(task_id, user_id).set(
+    def get_create_public_dashboard_sig(self, task_id: str, project_id: str):
+        return task_create_grafana_public_dashboard.si(task_id, project_id).set(
             task_id=task_id
         )
 
@@ -125,84 +135,127 @@ class GrafanaTaskExecutor(VisualizationPlatformTaskExecutor):
 
     def build_dashboard_provision_chain(
         self,
-        dash_dto: DashboardProvisionDTO,
-        base_dto: BaseProvisionDTO | None = None,
-    ):
+        *,
+        user_folder: CreateUserFolderDTO | None = None,
+        service_account: CreateServiceAccountDTO | None = None,
+        service_token: CreateServiceTokenDTO | None = None,
+        permissions: SetFolderPermissionsDTO | None = None,
+        dashboard: CreateDashboardDTO | None = None,
+        public_dashboard: CreatePublicDashboardDTO | None = None,
+        finalize_dashboard: FinalizeDashboardDTO | None = None,
+    ) -> Any | None:
         """
-        기본 리소스 체인 이후 → 대시보드 생성 → 퍼블릭 대시보드 생성
-        base_dto가 None이면 기본 리소스 체인은 제외
+        - 모든 DTO는 None 허용
+        - 제공된 DTO만 순서대로 체인에 포함
+        - chain(*sigs)로 Canvas 객체를 반환, DTO가 하나도 없으면 None 반환
         """
-        tasks = []
+        sigs = []
 
-        if base_dto is not None:
-            base_chain = self.build_base_resources_chain(base_dto)
-            tasks.append(base_chain)
-
-        tasks.append(
-            self.get_create_dashboard_sig(
-                task_id=dash_dto.dashboard_task_id,
-                user_id=dash_dto.user.id,
-                project_id=dash_dto.project_id,
-                dashboard_title=dash_dto.dashboard_title,
-                dashboard_config=dash_dto.dashboard_json_config,
+        if user_folder:
+            sigs.append(
+                self.get_create_user_folder_sig(
+                    task_id=user_folder.task_id,
+                    user_id=user_folder.user_id,
+                    folder_name=user_folder.folder_name,
+                )
             )
-        )
 
-        tasks.append(
-            self.get_create_public_dashboard_sig(
-                task_id=dash_dto.public_dashboard_task_id, user_id=dash_dto.user.id
+        if service_account:
+            sigs.append(
+                self.get_create_service_account_sig(
+                    task_id=service_account.task_id,
+                    project_id=service_account.project_id,
+                    account_name=service_account.account_name,
+                    user_id=service_account.user_id,
+                )
             )
-        )
-        tasks.append(
-            self.get_finalize_monitoring_project_sig(
-                task_id=dash_dto.finalize_task_id,
-                user_id=dash_dto.user.id,
-                project_id=dash_dto.project_id,
-            )
-        )
 
-        return chain(*tasks)
+        if service_token:
+            sigs.append(
+                self.get_create_service_token_sig(
+                    task_id=service_token.task_id,
+                    project_id=service_token.project_id,
+                    token_name=service_token.token_name,
+                )
+            )
+
+        if permissions:
+            sigs.append(
+                self.get_set_folder_permissions_sig(
+                    task_id=permissions.task_id,
+                    user_id=permissions.user_id,
+                    project_id=permissions.project_id,
+                )
+            )
+
+        if dashboard:
+            sigs.append(
+                self.get_create_dashboard_sig(
+                    task_id=dashboard.task_id,
+                    user_id=dashboard.user_id,
+                    project_id=dashboard.project_id,
+                    dashboard_title=dashboard.dashboard_title,
+                    dashboard_config=dashboard.dashboard_config,
+                )
+            )
+
+        if public_dashboard:
+            sigs.append(
+                self.get_create_public_dashboard_sig(
+                    task_id=public_dashboard.task_id,
+                    project_id=public_dashboard.project_id,
+                )
+            )
+
+        if finalize_dashboard:
+            sigs.append(
+                self.get_finalize_monitoring_project_sig(
+                    task_id=finalize_dashboard.task_id,
+                    user_id=finalize_dashboard.user_id,
+                    project_id=finalize_dashboard.project_id,
+                )
+            )
+
+        return chain(*sigs) if sigs else None
 
     # ─────────────────────────────────────────────────────────────────────────────
     # Provision chain
     # ─────────────────────────────────────────────────────────────────────────────
-    @override
-    def dispatch_provision_base_resources_workflow(
-        self,
-        dto: BaseProvisionDTO,
-    ) -> str:
-        """
-        유저 폴더 만들고 서비스 계정과 토큰을 생성한다음 권한 주는 태스크 체인
-        1) Create user folder
-        2) Create service account
-        3) Create service token (wrapper)
-        4) Set folder permissions (wrapper)
-        """
-
-        workflow_chain = self.build_base_resources_chain(
-            dto=dto,
-        )
-        result = workflow_chain.apply_async()
-        return result.id
 
     @override
     def dispatch_provision_dashboard_workflow(
         self,
-        dash_dto: DashboardProvisionDTO,
-        base_dto: BaseProvisionDTO | None = None,
+        *,
+        user_folder: CreateUserFolderDTO | None = None,
+        service_account: CreateServiceAccountDTO | None = None,
+        service_token: CreateServiceTokenDTO | None = None,
+        permissions: SetFolderPermissionsDTO | None = None,
+        dashboard: CreateDashboardDTO | None = None,
+        public_dashboard: CreatePublicDashboardDTO | None = None,
+        finalize_dashboard: FinalizeDashboardDTO | None = None,
+        failure: ProvisionFailureDTO,
     ) -> str:
         """
-        build_dashboard_provision_chain를 실행하여 비동기로 디스패치, 루트 task_id 반환
+        - build_dashboard_provision_chain와 동일한 인자를 키워드로 받음
+        - failure DTO는 에러 핸들러에 쓰일 task_id, project_id 포함
+        - 반환값: failure.project_id (모니터링 프로젝트 ID)
         """
-        dashboard_chain = self.build_dashboard_provision_chain(
-            dash_dto=dash_dto,
-            base_dto=base_dto,
+        chain_sig = self.build_dashboard_provision_chain(
+            user_folder=user_folder,
+            service_account=service_account,
+            service_token=service_token,
+            permissions=permissions,
+            dashboard=dashboard,
+            public_dashboard=public_dashboard,
+            finalize_dashboard=finalize_dashboard,
         )
 
-        dashboard_chain.apply_async(
-            link_error=handle_monitoring_project_failure.si(
-                dash_dto.finalize_task_id, dash_dto.project_id
+        if chain_sig:
+            chain_sig.apply_async(
+                link_error=handle_monitoring_project_failure.si(
+                    failure.task_id,
+                    failure.project_id,
+                )
             )
-        )
 
-        return dash_dto.project_id
+        return failure.project_id
