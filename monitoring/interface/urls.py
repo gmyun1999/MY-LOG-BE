@@ -16,4 +16,9 @@ urlpatterns = [
         LogMonitoringProjectStep2View.as_view(),
         name="logProjectStep2",
     ),
+    path(
+        "monitoring/project/me",
+        LogMonitoringProjectStep2View.as_view(),
+        name="logProjectMe",
+    ),
 ]

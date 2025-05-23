@@ -24,3 +24,6 @@ class IDashboardRepo(ABC):
         사용자 ID로 Dashboard를 조회하여 도메인 객체로 반환합니다.
         """
         ...
+
+    @abstractmethod
+    def find_by_project_id(self, project_id: str) -> Dashboard | None: ...

@@ -3,8 +3,8 @@ Content-Type: application/json
 Authorization: Bearer {{mylog-jwt}}
 
 {
-  "project_name": "MyLog Monitoring Project",
-  "project_description": "Monitoring project for MyLog",
+  "project_name": "Mydog Monitodring Project",
+  "project_description": "Monitording project for Mydog",
   "log_paths": ["/var/log/app.log"],
   "multiline_pattern": "^(INFO|WARN|ERROR)",
   "timestamp_field": null,

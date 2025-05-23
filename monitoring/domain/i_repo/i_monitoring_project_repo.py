@@ -15,3 +15,6 @@ class IMonitoringProjectRepo:
 
     @abstractmethod
     def update_fields(self, project_id: str, **fields: object) -> None: ...
+
+    @abstractmethod
+    def exists_by_id_and_user_id(self, project_id: str, user_id: str) -> bool: ...

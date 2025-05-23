@@ -9,8 +9,19 @@ from monitoring.domain.log_agent.agent_provision_context import (
 )
 from monitoring.domain.log_agent.log_collector import LogCollectorConfigContext
 from monitoring.domain.log_agent.log_router import LogRouterConfigContext
-from monitoring.domain.monitoring_project import MonitoringProject, MonitoringType
+from monitoring.domain.monitoring_project import (
+    MonitoringProject,
+    MonitoringType,
+    ProjectStatus,
+)
 from monitoring.infra.repo.monitoring_project_repo import MonitoringProjectRepo
+from monitoring.service.exceptions import (
+    AlreadyExistException,
+    AlreadyProvisioningException,
+    NotExistException,
+    NotImplementedException,
+    PermissionException,
+)
 from monitoring.service.harvester_agent_service import HarvesterAgentService
 from monitoring.service.monitoring_provision_service import MonitoringProvisionService
 from user.domain.user import User
@@ -32,6 +43,7 @@ class MonitoringProjectService:
         description: str | None = None,
         dashboard_id: str | None = None,
         user_folder_id: str | None = None,
+        service_account_id: str | None = None,
         agent_context: AgentProvisioningContext | None = None,
     ) -> MonitoringProject:
         project = MonitoringProject(
@@ -43,6 +55,7 @@ class MonitoringProjectService:
             dashboard_id=dashboard_id,
             user_folder_id=user_folder_id,
             agent_context=agent_context,
+            service_account_id=service_account_id,
         )
         self.project_repo.save(project)
         return project
@@ -77,17 +90,45 @@ class MonitoringProjectService:
                 project_type=MonitoringType.LOG,
                 description=project_description,
                 dashboard_id=None,
+                service_account_id=None,
                 user_folder_id=None,
                 agent_context=agent_ctx,
             )
             return project
 
+    def check_permission(self, user: User, project_id: str) -> bool:
+        """
+        프로젝트에 대한 권한 체크
+        """
+        is_exist = self.project_repo.exists_by_id_and_user_id(
+            project_id=project_id, user_id=user.id
+        )
+        if not is_exist:
+            raise PermissionException()
+        return True
+
     def start_log_project_step2(self, user, project_id: str) -> None:
         """
         provision_dashboard 호출 및 대시보드 생성 (근데 이건 비동기잖아?)
         """
+        project = self.project_repo.find_by_id(project_id)
+        if not project:
+            raise NotExistException()
+
+        self.check_permission(user, project_id)
+        if project.status == ProjectStatus.FAILED:
+            raise NotImplementedException()
+
+        if project.status == ProjectStatus.READY:
+            raise AlreadyExistException()
+
+        if project.status == ProjectStatus.IN_PROGRESS:
+            raise AlreadyProvisioningException()
+
         need_base_provisioning = (
-            self.monitoring_provision_service.check_if_need_base_provisioning(user)
+            self.monitoring_provision_service.check_if_need_base_provisioning(
+                user, project_id
+            )
         )
 
         # 로그 대시보드 프로비저닝

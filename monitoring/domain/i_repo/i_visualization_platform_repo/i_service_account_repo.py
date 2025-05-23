@@ -9,13 +9,13 @@ class IServiceAccountRepo(ABC):
         pass
 
     @abstractmethod
-    def find_by_account_id(self, account_id: int) -> ServiceAccount | None:
+    def find_by_account_id(self, account_id: str) -> ServiceAccount | None:
         pass
 
     @abstractmethod
-    def update_token(self, account_id: int, token: str) -> None:
+    def update_token(self, account_id: str, token: str) -> None:
         pass
 
     @abstractmethod
-    def find_by_user_id(self, user_id: str) -> ServiceAccount | None:
+    def find_by_project_id(self, user_id: str) -> ServiceAccount | None:
         pass

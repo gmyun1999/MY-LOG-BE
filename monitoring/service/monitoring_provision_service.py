@@ -4,6 +4,9 @@ from typing import Any
 from django.utils import timezone
 
 from monitoring.domain.i_repo.i_task_result_repo import ITaskResultRepo
+from monitoring.domain.i_repo.i_visualization_platform_repo.i_dashbaord_repo import (
+    IDashboardRepo,
+)
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_folder_permission_repo import (
     IFolderPermissionRepo,
 )
@@ -21,6 +24,9 @@ from monitoring.domain.task_result import (
 from monitoring.infra.celery.task_executor.grafana_executor import GrafanaTaskExecutor
 from monitoring.infra.grafana.grafana_template_provider import GrafanaTemplateProvider
 from monitoring.infra.repo.task_result_repo import TaskResultRepo
+from monitoring.infra.repo.visualization_platform_repo.dashboard_repo import (
+    DashboardRepo,
+)
 from monitoring.infra.repo.visualization_platform_repo.folder_permission_repo import (
     FolderPermissionRepo,
 )
@@ -28,6 +34,7 @@ from monitoring.infra.repo.visualization_platform_repo.folder_repo import Folder
 from monitoring.infra.repo.visualization_platform_repo.service_account_repo import (
     ServiceAccountRepo,
 )
+from monitoring.service.exceptions import AlreadyExistException
 from monitoring.service.i_executors.excutor_DTO import (
     BaseProvisionDTO,
     DashboardProvisionDTO,
@@ -52,15 +59,16 @@ class MonitoringProvisionService:
         self.folder_repo: IFolderRepo = FolderRepo()
         self.account_repo: IServiceAccountRepo = ServiceAccountRepo()
         self.folder_permissions_repo: IFolderPermissionRepo = FolderPermissionRepo()
+        self.dashboard_repo: IDashboardRepo = DashboardRepo()
 
     def _make_folder_name(self, user_id: str, user_name: str) -> str:
         return f"User_{user_id}_{user_name}'s Folder"
 
-    def _make_account_name(self, user_id: str) -> str:
-        return f"service-{user_id}"
+    def _make_account_name(self, user_id: str, project_id: str) -> str:
+        return f"service-{user_id}-{project_id}"
 
-    def _make_token_name(self, user_id: str) -> str:
-        return f"token-{user_id}"
+    def _make_token_name(self, user_id: str, project_id: str) -> str:
+        return f"token-{user_id}-{project_id}"
 
     def _make_dashboard_title(self, user: User) -> str:
         return f"{user.name}'s Logs Dashboard"
@@ -84,12 +92,12 @@ class MonitoringProvisionService:
             dashboard_uid=str(uuid.uuid4()),
         )
 
-    def check_if_need_base_provisioning(self, user: User) -> bool:
+    def check_if_need_base_provisioning(self, user: User, project_id: str) -> bool:
         folder = self.folder_repo.find_by_user_id(user.id)
         if folder is None:
             return True
 
-        service_account = self.account_repo.find_by_user_id(user.id)
+        service_account = self.account_repo.find_by_project_id(project_id)
         if service_account is None:
             return True
 
@@ -102,7 +110,7 @@ class MonitoringProvisionService:
         # base provisioning이 필요하지 않음
         return False
 
-    def provision_base_resources(self, user: User) -> str:
+    def provision_base_resources(self, user: User, monitoring_project_id: str) -> str:
         """
         기본 리소스 프로비저닝
         1) 사용자 폴더 생성
@@ -111,6 +119,10 @@ class MonitoringProvisionService:
         4) 폴더 권한 설정 (wrapper)
         전체 단계를 하나의 chain 으로 묶어 실행
         """
+        if self.folder_repo.find_by_user_id(user.id):
+            raise AlreadyExistException(
+                message="사용자별로 유저폴더는 하나만 생성 가능"
+            )
 
         folder_task_id = self._save_task_pending(
             MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER
@@ -125,13 +137,16 @@ class MonitoringProvisionService:
             MonitoringDashboardTaskName.SET_FOLDER_PERMISSIONS
         )
         folder_name = self._make_folder_name(user.id, user.name)
-        account_name = self._make_account_name(user.id)
-        token_name = self._make_token_name(user.id)
+        account_name = self._make_account_name(
+            user.id, project_id=monitoring_project_id
+        )
+        token_name = self._make_token_name(user.id, project_id=monitoring_project_id)
 
         base_dto = BaseProvisionDTO(
             user=user,
             folder_task_id=folder_task_id,
             account_task_id=account_task_id,
+            project_id=monitoring_project_id,
             token_task_id=token_task_id,
             perm_task_id=perm_task_id,
             folder_name=folder_name,
@@ -156,20 +171,14 @@ class MonitoringProvisionService:
         4) dispatch
         """
 
-        dash_board_template = self.create_logs_dashboard_template(user)
-
-        # Dashboard 관련 Task ID
-        dash_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_DASHBOARD
-        )
-        pub_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.CREATE_PUBLIC_DASHBOARD
-        )
-        finalize_task_id = self._save_task_pending(
-            MonitoringDashboardTaskName.FINALIZE_DASHBOARD
-        )
         # 기본 리소스 Task ID는 skip 여부에 따라 생성
         if not skip_base_provisioning:
+
+            if self.folder_repo.find_by_user_id(user.id):
+                raise AlreadyExistException(
+                    message="사용자별로 유저폴더는 하나만 생성 가능"
+                )
+
             folder_task_id = self._save_task_pending(
                 MonitoringDashboardTaskName.CREATE_DASHBOARD_USER_FOLDER
             )
@@ -184,13 +193,18 @@ class MonitoringProvisionService:
             )
 
             folder_name = self._make_folder_name(user.id, user.name)
-            account_name = self._make_account_name(user.id)
-            token_name = self._make_token_name(user.id)
+            account_name = self._make_account_name(
+                user.id, project_id=monitoring_project_id
+            )
+            token_name = self._make_token_name(
+                user.id, project_id=monitoring_project_id
+            )
 
             base_dto = BaseProvisionDTO(
                 user=user,
                 folder_task_id=folder_task_id,
                 account_task_id=account_task_id,
+                project_id=monitoring_project_id,
                 token_task_id=token_task_id,
                 perm_task_id=perm_task_id,
                 folder_name=folder_name,
@@ -199,6 +213,24 @@ class MonitoringProvisionService:
             )
         else:
             base_dto = None
+
+        if self.dashboard_repo.find_by_project_id(project_id=monitoring_project_id):
+            raise AlreadyExistException(
+                message="프로젝트당 대시보드는 하나만 생성 가능"
+            )
+
+        dash_board_template = self.create_logs_dashboard_template(user)
+
+        # Dashboard 관련 Task ID
+        dash_task_id = self._save_task_pending(
+            MonitoringDashboardTaskName.CREATE_DASHBOARD
+        )
+        pub_task_id = self._save_task_pending(
+            MonitoringDashboardTaskName.CREATE_PUBLIC_DASHBOARD
+        )
+        finalize_task_id = self._save_task_pending(
+            MonitoringDashboardTaskName.FINALIZE_DASHBOARD
+        )
 
         dash_dto = DashboardProvisionDTO(
             user=user,

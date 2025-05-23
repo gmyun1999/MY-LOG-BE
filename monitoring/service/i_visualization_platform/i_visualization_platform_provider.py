@@ -16,14 +16,14 @@ class VisualizationPlatformProvider(ABC):
 
     @abstractmethod
     def create_service_token(
-        self, service_account_id: int, token_name: str
+        self, service_account_id: str, token_name: str
     ) -> dict[str, Any]:
         """서비스 계정 토큰 생성."""
         pass
 
     @abstractmethod
     def set_folder_permissions(
-        self, folder_uid: str, service_account_id: int, permission: int = 1
+        self, folder_uid: str, service_account_id: str, permission: int = 1
     ) -> dict[str, Any]:
         """폴더 권한 설정."""
         pass

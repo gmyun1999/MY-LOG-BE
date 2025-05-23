@@ -16,12 +16,13 @@ class ServiceAccountRepo(IServiceAccountRepo):
         )
 
     @override
-    def find_by_account_id(self, account_id: int) -> ServiceAccount | None:
+    def find_by_account_id(self, account_id: str) -> ServiceAccount | None:
         try:
             model = ServiceAccountModel.objects.get(account_id=account_id)
             return ServiceAccount(
                 id=model.id,
                 account_id=model.account_id,
+                project_id=model.project_id,
                 user_id=model.user_id,
                 name=model.name,
                 is_disabled=model.is_disabled,
@@ -32,12 +33,13 @@ class ServiceAccountRepo(IServiceAccountRepo):
             return None
 
     @override
-    def find_by_user_id(self, user_id: str) -> ServiceAccount | None:
+    def find_by_project_id(self, project_id: str) -> ServiceAccount | None:
         try:
-            model = ServiceAccountModel.objects.get(user_id=user_id)
+            model = ServiceAccountModel.objects.get(project_id=project_id)
             return ServiceAccount(
                 id=model.id,
                 account_id=model.account_id,
+                project_id=model.project_id,
                 user_id=model.user_id,
                 name=model.name,
                 is_disabled=model.is_disabled,
@@ -48,5 +50,5 @@ class ServiceAccountRepo(IServiceAccountRepo):
             return None
 
     @override
-    def update_token(self, account_id: int, token: str) -> None:
+    def update_token(self, account_id: str, token: str) -> None:
         ServiceAccountModel.objects.filter(account_id=account_id).update(token=token)

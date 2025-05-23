@@ -35,19 +35,28 @@ class GrafanaTaskExecutor(VisualizationPlatformTaskExecutor):
         )
 
     def get_create_service_account_sig(
-        self, task_id: str, account_name: str, user_id: str, role: str = "Viewer"
+        self,
+        task_id: str,
+        project_id: str,
+        account_name: str,
+        user_id: str,
+        role: str = "Viewer",
     ):
         return task_create_grafana_service_account.si(
-            task_id, account_name, user_id, role
+            task_id, project_id, account_name, user_id, role
         ).set(task_id=task_id)
 
-    def get_create_service_token_sig(self, task_id: str, user_id: str, token_name: str):
-        return task_create_grafana_service_token.si(task_id, user_id, token_name).set(
-            task_id=task_id
-        )
+    def get_create_service_token_sig(
+        self, task_id: str, project_id: str, token_name: str
+    ):
+        return task_create_grafana_service_token.si(
+            task_id, project_id, token_name
+        ).set(task_id=task_id)
 
-    def get_set_folder_permissions_sig(self, task_id: str, user_id: str):
-        return task_set_grafana_folder_permissions.si(task_id, user_id).set(
+    def get_set_folder_permissions_sig(
+        self, task_id: str, user_id: str, project_id: str
+    ):
+        return task_set_grafana_folder_permissions.si(task_id, user_id, project_id).set(
             task_id=task_id
         )
 
@@ -98,17 +107,19 @@ class GrafanaTaskExecutor(VisualizationPlatformTaskExecutor):
             ),
             self.get_create_service_account_sig(
                 task_id=dto.account_task_id,
+                project_id=dto.project_id,
                 account_name=dto.account_name,
                 user_id=dto.user.id,
             ),
             self.get_create_service_token_sig(
                 task_id=dto.token_task_id,
-                user_id=dto.user.id,
+                project_id=dto.project_id,
                 token_name=dto.token_name,
             ),
             self.get_set_folder_permissions_sig(
                 task_id=dto.perm_task_id,
                 user_id=dto.user.id,
+                project_id=dto.project_id,
             ),
         )
 

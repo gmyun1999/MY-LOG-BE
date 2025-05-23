@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  django:
+    build: .
+    container_name: django_app
+    command: ["./scripts/start-django.sh"]
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  celery:
+    build: .
+    container_name: celery_worker
+    command: ["./scripts/start-celery.sh"]
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

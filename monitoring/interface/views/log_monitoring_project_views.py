@@ -15,6 +15,7 @@ from monitoring.domain.log_agent.log_collector import (
     LogInputType,
 )
 from monitoring.domain.log_agent.log_router import LogRouterConfigContext
+from monitoring.service.exceptions import MonitoringProjectException
 from monitoring.service.monitoring_project_service import MonitoringProjectService
 from user.domain.user import User
 from user.domain.user_role import UserRole
@@ -162,10 +163,19 @@ class LogMonitoringProjectStep2View(APIView):
             user = UserService.get_user_from_token_payload(token_payload)
         except ValueError as e:
             return error_response(status=status.HTTP_403_FORBIDDEN, message=str(e))
+        try:
+            self.project_service.start_log_project_step2(
+                user=user,
+                project_id=body.project_id,
+            )
 
-        self.project_service.start_log_project_step2(
-            user=user,
-            project_id=body.project_id,
-        )
+            return success_response(status=status.HTTP_200_OK, message="OK", data={})
+        except MonitoringProjectException as e:
+            return error_response(
+                message=e.message,
+                detail=e.detail,
+            )
 
-        return success_response(status=status.HTTP_200_OK, message="OK", data={})
+
+class MyMonitoringProject(APIView):
+    pass

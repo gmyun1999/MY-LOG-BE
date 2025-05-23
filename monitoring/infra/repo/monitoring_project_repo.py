@@ -19,6 +19,7 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
                 "project_type": project.project_type.value,
                 "status": project.status.value,
                 "dashboard_id": project.dashboard_id,
+                "service_account_id": project.service_account_id,
                 "user_folder_id": project.user_folder_id,
                 "agent_context": (
                     project.agent_context.model_dump()
@@ -45,6 +46,7 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
                     if obj.agent_context
                     else None
                 ),
+                service_account_id=obj.service_account_id,
             )
         except MonitoringProjectModel.DoesNotExist:
             return None
@@ -54,3 +56,8 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
 
     def update_fields(self, project_id: str, **fields: object) -> None:
         MonitoringProjectModel.objects.filter(id=project_id).update(**fields)
+
+    def exists_by_id_and_user_id(self, project_id: str, user_id: str) -> bool:
+        return MonitoringProjectModel.objects.filter(
+            id=project_id, user_id=user_id
+        ).exists()

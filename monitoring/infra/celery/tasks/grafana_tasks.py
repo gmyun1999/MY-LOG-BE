@@ -75,7 +75,7 @@ def task_create_grafana_folder(self, task_id: str, user_id: str, folder_name: st
 
 @locking_task(max_retries=3, default_retry_delay=2)
 def task_create_grafana_service_account(
-    self, task_id: str, name: str, user_id: str, role: str = "Viewer"
+    self, task_id: str, project_id: str, name: str, user_id: str, role: str = "Viewer"
 ):
     """
     그라파나 서비스 계정 생성 태스크
@@ -83,7 +83,8 @@ def task_create_grafana_service_account(
     result = grafana_api.create_service_account(name, role)
     account = ServiceAccount(
         id=str(uuid.uuid4()),
-        account_id=result["id"],
+        account_id=str(result["id"]),
+        project_id=project_id,
         user_id=user_id,
         name=result["name"],
         role=result["role"],
@@ -96,25 +97,27 @@ def task_create_grafana_service_account(
 
 @locking_task(max_retries=3, default_retry_delay=2)
 def task_create_grafana_service_token(
-    self, task_id: str, user_id: str, token_name: str
+    self, task_id: str, project_id: str, token_name: str
 ):
     """
     그라파나 서비스 토큰 생성 태스크
     """
-    sa = service_account_repo.find_by_user_id(user_id)
+    sa = service_account_repo.find_by_project_id(project_id)
     if sa is None:
-        raise RuntimeError(f"No ServiceAccount for user {user_id}")
+        raise RuntimeError(f"No ServiceAccount for project {project_id}")
     result = grafana_api.create_service_token(sa.account_id, token_name)
 
     service_account_repo.update_token(
-        account_id=int(sa.account_id), token=result["key"]
+        account_id=str(sa.account_id), token=result["key"]
     )
 
     return result
 
 
 @locking_task(max_retries=3, default_retry_delay=2)
-def task_set_grafana_folder_permissions(self, task_id: str, user_id: str):
+def task_set_grafana_folder_permissions(
+    self, task_id: str, user_id: str, project_id: str
+):
     """
     그라파나 폴더 권한 설정 태스크
     """
@@ -122,15 +125,15 @@ def task_set_grafana_folder_permissions(self, task_id: str, user_id: str):
     if folder is None:
         raise RuntimeError(f"No UserFolder for user {user_id}")
 
-    sa = service_account_repo.find_by_user_id(user_id)
+    sa = service_account_repo.find_by_project_id(project_id)
     if sa is None:
-        raise RuntimeError(f"No ServiceAccount for user {user_id}")
+        raise RuntimeError(f"No ServiceAccount for project {project_id}")
     result = grafana_api.set_folder_permissions(folder.uid, sa.account_id)
 
     permission = FolderPermission(
         id=str(uuid.uuid4()),
         folder_uid=folder.uid,
-        service_account_id=int(sa.account_id),
+        service_account_id=sa.account_id,
         permission=FolderPermissionLevel.VIEW,
     )
 

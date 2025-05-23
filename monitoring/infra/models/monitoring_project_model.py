@@ -1,6 +1,7 @@
 from django.db import models
 
 from monitoring.domain.monitoring_project import MonitoringType, ProjectStatus
+from monitoring.domain.visualization_platform import service_account
 from monitoring.infra.models.visualization_platform_model import UserFolderModel
 from user.infra.models.user import User
 
@@ -33,6 +34,16 @@ class MonitoringProjectModel(models.Model):
 
     dashboard = models.OneToOneField(
         "DashboardModel",
+        to_field="id",
+        on_delete=models.SET_NULL,
+        db_constraint=False,
+        null=True,
+        blank=True,
+        related_name="monitoring_project",
+    )
+
+    service_account = models.OneToOneField(
+        "ServiceAccountModel",
         to_field="id",
         on_delete=models.SET_NULL,
         db_constraint=False,

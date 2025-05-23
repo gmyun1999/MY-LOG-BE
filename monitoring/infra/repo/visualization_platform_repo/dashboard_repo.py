@@ -59,3 +59,26 @@ class DashboardRepo(IDashboardRepo):
             )
         except DashboardModel.DoesNotExist:
             return None
+
+    def find_by_project_id(self, project_id: str) -> Dashboard | None:
+        """
+        프로젝트 ID로 Dashboard를 조회하여 도메인 객체로 반환합니다.
+        """
+        try:
+            model = DashboardModel.objects.get(project_id=project_id)
+            return Dashboard(
+                id=model.id,
+                uid=model.uid,
+                title=model.title,
+                user_id=model.user_id,
+                org_id=model.org_id,
+                project_id=model.project_id,
+                folder_uid=model.folder_uid,
+                url=model.url,
+                config_json=model.config_json,
+                panels=model.panels,
+                tags=model.tags,
+                data_sources=model.data_sources,
+            )
+        except DashboardModel.DoesNotExist:
+            return None

@@ -3,6 +3,7 @@ from enum import StrEnum
 
 from common.domain import Domain
 from monitoring.domain.log_agent.agent_provision_context import AgentProvisioningContext
+from monitoring.domain.visualization_platform import service_account
 
 
 class MonitoringType(StrEnum):
@@ -24,6 +25,7 @@ class MonitoringProject(Domain):
     name: str
     project_type: MonitoringType
     status: ProjectStatus = ProjectStatus.INITIATED
+    service_account_id: str | None = None
     description: str | None = None
     dashboard_id: str | None = None
     user_folder_id: str | None = None

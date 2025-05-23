@@ -7,6 +7,7 @@ from user.domain.user import User
 @dataclass
 class BaseProvisionDTO:
     user: User
+    project_id: str
     folder_task_id: str
     account_task_id: str
     token_task_id: str

@@ -1,4 +1,5 @@
 from typing import Any
+from unittest.util import strclass
 
 import requests
 from typing_extensions import override
@@ -30,7 +31,9 @@ class GrafanaAPI(VisualizationPlatformProvider):
         data = {"title": title}
 
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print("Error response:", response.text)
+            response.raise_for_status()
         return response.json()
 
     @override
@@ -42,15 +45,17 @@ class GrafanaAPI(VisualizationPlatformProvider):
         url = f"{self.base_url}/api/serviceaccounts"
 
         # 그라파나 12.0.0 API 형식에 맞게 조정
-        data = {"name": name, "role": role, "isDisabled": False}
+        data = {"name": name, "role": role}
 
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print("Error response:", response.text)
+            response.raise_for_status()
         return response.json()
 
     @override
     def create_service_token(
-        self, service_account_id: int, token_name: str
+        self, service_account_id: str, token_name: str
     ) -> dict[str, Any]:
         """
         서비스 계정 토큰 생성
@@ -61,12 +66,14 @@ class GrafanaAPI(VisualizationPlatformProvider):
         data = {"name": token_name}
 
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print("Error response:", response.text)
+            response.raise_for_status()
         return response.json()
 
     @override
     def set_folder_permissions(
-        self, folder_uid: str, service_account_id: int, permission: int = 1
+        self, folder_uid: str, service_account_id: str, permission: int = 1
     ) -> dict[str, Any]:
         """
         폴더 권한 설정 - Grafana 12.0.0 버전용
@@ -74,10 +81,14 @@ class GrafanaAPI(VisualizationPlatformProvider):
         url = f"{self.base_url}/api/folders/{folder_uid}/permissions"
 
         # Grafana 12 호환 형식으로
-        data = {"items": [{"userId": service_account_id, "permission": permission}]}
+        data = {
+            "items": [{"userId": int(service_account_id), "permission": permission}]
+        }
 
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print("Error response:", response.text)
+            response.raise_for_status()
         return response.json()
 
     @override
@@ -95,7 +106,9 @@ class GrafanaAPI(VisualizationPlatformProvider):
         }
 
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print("Error response:", response.text)
+            response.raise_for_status()
 
         return response.json()
 
@@ -114,7 +127,9 @@ class GrafanaAPI(VisualizationPlatformProvider):
         }
 
         response = requests.post(url, json=data, headers=self.headers)
-        response.raise_for_status()
+        if response.status_code != 200:
+            print("Error response:", response.text)
+            response.raise_for_status()
         return response.json()
 
     @override

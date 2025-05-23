@@ -14,7 +14,7 @@ class FolderPermissionLevel(IntEnum):
 @dataclass
 class FolderPermission(Domain):
     id: str
-    service_account_id: int
+    service_account_id: str
     folder_uid: str
     permission: FolderPermissionLevel
 
