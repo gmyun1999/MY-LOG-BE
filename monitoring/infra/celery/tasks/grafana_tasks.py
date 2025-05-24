@@ -175,7 +175,14 @@ def task_create_grafana_dashboard(
         url=result.get("url"),
         project_id=project_id,
         config_json=dashboard_json_config,
-        panels=[],
+        panels=[
+            {
+                "id": 1,
+                "type": "graph",
+                "title": "CPU Usage",
+                "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+            }
+        ],
         tags=[],
         data_sources=[],
     )

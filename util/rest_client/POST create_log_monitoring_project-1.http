@@ -14,7 +14,7 @@ Authorization: Bearer {{mylog-jwt}}
   "custom_json_fields": [],
   "custom_plain_fields": [
     "level",
-    "<timestamp>",
+    "timestamp",
     "|",
     "module",
     "||",

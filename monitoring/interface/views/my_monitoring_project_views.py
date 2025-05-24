@@ -4,11 +4,8 @@ from rest_framework import status
 from rest_framework.views import APIView
 
 from common.interface.response import ErrorResponse, error_response, success_response
-from monitoring.domain.monitoring_project import (
-    MonitoringProjectWithDashboardDto,
-    MonitoringProjectWithPublicDashboardDto,
-)
-from monitoring.interface.DTO.responseDTO import APIResponse
+from monitoring.domain.monitoring_project import MonitoringProjectWithBothDashboardsDto
+from monitoring.interface.DTO.responseDTO import APIResponseList
 from monitoring.service.exceptions import MonitoringProjectException
 from monitoring.service.monitoring_project_service import MonitoringProjectService
 from user.domain.user_role import UserRole
@@ -34,7 +31,7 @@ class MyMonitoringProjectView(APIView):
             ),
         ],
         responses={
-            200: OpenApiResponse(APIResponse),
+            200: OpenApiResponse(APIResponseList),
             403: OpenApiResponse(
                 response=PydanticToDjangoSerializer.convert(ErrorResponse)
             ),
@@ -60,7 +57,7 @@ class MyMonitoringProjectView(APIView):
             self.project_service.check_permission(user, project_id)
 
             # ① DTO 받아오기
-            dto: MonitoringProjectWithPublicDashboardDto = (
+            dto: MonitoringProjectWithBothDashboardsDto = (
                 self.project_service.get_project_detail(
                     project_id=project_id,
                 )

@@ -4,6 +4,7 @@ from monitoring.domain.i_repo.i_monitoring_project_repo import IMonitoringProjec
 from monitoring.domain.monitoring_project import (
     AgentProvisioningContext,
     MonitoringProject,
+    MonitoringProjectWithBothDashboardsDto,
     MonitoringProjectWithDashboardDto,
     MonitoringProjectWithPublicDashboardDto,
     MonitoringType,
@@ -159,9 +160,6 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
         except MonitoringProjectModel.DoesNotExist:
             return None
 
-        # print("project_id:", project_id)
-        project_obj1 = MonitoringProjectModel.objects.get(id=project_id)
-        print("public_dashboard_id:", project_obj1.public_dashboard_id)
         # 3) public_dashboard_model이 None이면 그대로 None 할당
         public_dashboard_model = project_obj.public_dashboard
         if public_dashboard_model is None:
@@ -178,22 +176,74 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
             "public_dashboard": public_dashboard_data,
         }
 
-        a = MonitoringProjectWithPublicDashboardDto.from_dict(combined)
-        print(combined)
-        return a
+        return MonitoringProjectWithPublicDashboardDto.from_dict(combined)
 
-    def find_all_with_public_dashboard_dto_by_user(
+    def find_all_with_full_dashboard_dto_by_user(
         self, user_id: str
-    ) -> list[MonitoringProjectWithPublicDashboardDto]:
+    ) -> list[MonitoringProjectWithBothDashboardsDto]:
         # 1) 사용자 프로젝트 ID 목록 조회
         ids = MonitoringProjectModel.objects.filter(user_id=user_id).values_list(
             "id", flat=True
         )
 
         # 2) 각 ID별로 DTO 생성
-        dtos: list[MonitoringProjectWithPublicDashboardDto] = []
+        dtos: list[MonitoringProjectWithBothDashboardsDto] = []
         for pid in ids:
-            dto = self.find_with_public_dashboard_dto(pid)
+            dto = self.find_with_full_dashboard_dto(pid)
             if dto is not None:
                 dtos.append(dto)
         return dtos
+
+    def find_with_full_dashboard_dto(
+        self, project_id: str
+    ) -> MonitoringProjectWithBothDashboardsDto | None:
+        # 1) 조회 대상 project Domain
+        project_domain = self.find_by_id(project_id)
+        if project_domain is None:
+            return None
+        project_dict = project_domain.to_dict(
+            excludes=[MonitoringProject.FIELD_AGENT_CONTEXT]
+        )
+
+        # 2) dashboard 및 public_dashboard를 한 번에 가져오기
+        try:
+            proj = MonitoringProjectModel.objects.select_related(
+                "dashboard", "public_dashboard"
+            ).get(id=project_id)
+        except MonitoringProjectModel.DoesNotExist:
+            return None
+
+        # 3) dashboard data
+        DASH_KEYS = [
+            Dashboard.FIELD_ID,
+            Dashboard.FIELD_UID,
+            Dashboard.FIELD_TITLE,
+            Dashboard.FIELD_FOLDER_UID,
+            Dashboard.FIELD_URL,
+        ]
+        dash = proj.dashboard
+        dashboard_data = (
+            None if dash is None else {key: getattr(dash, key) for key in DASH_KEYS}
+        )
+
+        # 4) public_dashboard data
+        PUB_KEYS = [
+            PublicDashboard.FIELD_ID,
+            PublicDashboard.FIELD_UID,
+            PublicDashboard.FIELD_PROJECT_ID,
+            PublicDashboard.FIELD_DASHBOARD_ID,
+            PublicDashboard.FIELD_PUBLIC_URL,
+        ]
+        pub = proj.public_dashboard
+        public_dashboard_data = (
+            None if pub is None else {key: getattr(pub, key) for key in PUB_KEYS}
+        )
+
+        # 5) combined dict → DTO
+        combined = {
+            **project_dict,
+            "dashboard": dashboard_data,
+            "public_dashboard": public_dashboard_data,
+        }
+        print(combined)
+        return MonitoringProjectWithBothDashboardsDto.from_dict(combined)

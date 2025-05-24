@@ -3,6 +3,6 @@ Content-Type: application/json
 Authorization: Bearer {{mylog-jwt}}
 
 {
-  "project_id": "19d28c75-2d16-4dd9-9e89-593a422a7b97"
+  "project_id": "df1f4b85-4ac1-4e94-a264-4abe8f22b19e"
 }
 

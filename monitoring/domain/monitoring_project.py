@@ -102,3 +102,30 @@ class MonitoringProjectWithPublicDashboardDto(Domain):
     dashboard_id: str | None = None
     agent_context: AgentProvisioningContext | None = None
     public_dashboard: PublicDashboard | None = None
+
+
+@dataclass
+class MonitoringProjectWithBothDashboardsDto(Domain):
+    FIELD_ID = "id"
+    FIELD_USER_ID = "user_id"
+    FIELD_NAME = "name"
+    FIELD_PROJECT_TYPE = "project_type"
+    FIELD_STATUS = "status"
+    FIELD_SERVICE_ACCOUNT_ID = "service_account_id"
+    FIELD_DASHBOARD = "dashboard"
+    FIELD_PUBLIC_DASHBOARD = "public_dashboard"
+    FIELD_USER_FOLDER_ID = "user_folder_id"
+    FIELD_AGENT_CONTEXT = "agent_context"
+    FIELD_DESCRIPTION = "description"
+
+    id: str
+    user_id: str
+    name: str
+    project_type: MonitoringType
+    status: ProjectStatus
+    service_account_id: str | None = None
+    description: str | None = None
+    user_folder_id: str | None = None
+    dashboard: Dashboard | None = None
+    agent_context: AgentProvisioningContext | None = None
+    public_dashboard: PublicDashboard | None = None

@@ -3,15 +3,26 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
-# 1) Dashboard 응답용 Pydantic 모델
+class DashboardResponse(BaseModel):
+    id: str
+    uid: Optional[str] = None
+    title: Optional[str] = None
+    folder_uid: Optional[str] = None
+    url: Optional[str] = None
+    panels: List[Dict[str, Any]] = []
+    tags: List[str] = []
+    data_sources: List[str] = []
+
+
 class PublicDashboardResponse(BaseModel):
     id: str
     uid: str
     public_url: str
+    project_id: str
+    dashboard_id: str
 
 
-# 2) MonitoringProjectWithDashboardDto 응답용 Pydantic 모델
-class MonitoringProjectWithPublicDashboardResponse(BaseModel):
+class MonitoringProjectWithBothDashboardsResponse(BaseModel):
     id: str
     user_id: str
     name: str
@@ -20,17 +31,17 @@ class MonitoringProjectWithPublicDashboardResponse(BaseModel):
     service_account_id: Optional[str] = None
     description: Optional[str] = None
     user_folder_id: Optional[str] = None
-    dashboard: str | None = None
-    public_dashboard: PublicDashboardResponse | None = None
+    dashboard: Optional[DashboardResponse] = None
+    public_dashboard: Optional[PublicDashboardResponse] = None
 
 
 class APIResponse(BaseModel):
-    data: MonitoringProjectWithPublicDashboardResponse
+    data: MonitoringProjectWithBothDashboardsResponse
     message: str
 
 
 class PagedProjectsResponse(BaseModel):
-    items: List[MonitoringProjectWithPublicDashboardResponse]
+    items: List[MonitoringProjectWithBothDashboardsResponse]
     total_items: int
     total_pages: int
     current_page: int
