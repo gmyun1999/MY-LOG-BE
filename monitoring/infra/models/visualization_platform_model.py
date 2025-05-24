@@ -81,6 +81,39 @@ class DashboardModel(models.Model):
         db_table = "visualization_dashboard"
 
 
+class PublicDashboardModel(models.Model):
+    """
+    시각화 플랫폼 퍼블릭 대시보드
+    """
+
+    id = models.CharField(primary_key=True, max_length=64)
+    uid = models.CharField(max_length=128, null=True, blank=True)
+
+    dashboard = models.OneToOneField(
+        "monitoring.DashboardModel",
+        to_field="id",
+        on_delete=models.CASCADE,
+        related_name="public_dashboard_model",
+        db_constraint=False,
+        null=False,
+        blank=False,
+    )
+    project = models.OneToOneField(
+        "monitoring.MonitoringProjectModel",
+        to_field="id",
+        on_delete=models.CASCADE,
+        related_name="public_dashboard_model",
+        db_constraint=False,
+        null=False,
+        blank=False,
+    )
+
+    public_url = models.URLField(max_length=512, null=True, blank=True)
+
+    class Meta:
+        db_table = "visualization_public_dashboard"
+
+
 class FolderPermissionModel(models.Model):
     """
     서비스 계정 ↔ 폴더 권한
@@ -169,3 +202,25 @@ def set_service_account_on_project(
     if project.service_account_id != instance.id:
         project.service_account_id = instance.id
         project.save(update_fields=["service_account"])
+
+
+@receiver(post_save, sender=PublicDashboardModel)
+def set_public_dashboard_on_project(
+    sender, instance: PublicDashboardModel, created: bool, **kwargs
+):
+    if not created or not instance.project_id:
+        return
+
+    from monitoring.infra.models.monitoring_project_model import MonitoringProjectModel
+
+    try:
+        # MonitoringProjectModel을 찾는다
+        project = MonitoringProjectModel.objects.get(id=instance.project_id)
+    except MonitoringProjectModel.DoesNotExist:
+        # 연결된 프로젝트가 존재하지 않으면 무시
+        return
+
+    # 프로젝트의 dashboard 필드에 "나 자신"을 설정한다
+    if project.public_dashboard_id != instance.id:
+        project.public_dashboard_id = instance.id
+        project.save(update_fields=["public_dashboard"])

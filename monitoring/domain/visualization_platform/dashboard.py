@@ -41,3 +41,22 @@ class Dashboard(Domain):
     #   - tags: 대시보드에 붙여진 태그 목록
     data_sources: list[str] = field(default_factory=list)
     #   - data_sources: 대시보드에서 참조하는 데이터 소스의 이름 목록
+
+
+@dataclass
+class PublicDashboard(Domain):
+    """
+    퍼블릭 대시보드
+    """
+
+    FIELD_ID = "id"
+    FIELD_UID = "uid"
+    FIELD_DASHBOARD_ID = "dashboard_id"
+    FIELD_PUBLIC_URL = "public_url"
+    FIELD_PROJECT_ID = "project_id"
+
+    id: str
+    uid: str  # 퍼블릭 대시보드의 UID
+    project_id: str
+    dashboard_id: str  # 연결된 대시보드의 ID
+    public_url: str

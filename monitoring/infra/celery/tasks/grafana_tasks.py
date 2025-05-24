@@ -6,6 +6,7 @@ from django.db import transaction
 from monitoring.domain.i_repo.i_task_result_repo import ITaskResultRepo
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_dashbaord_repo import (
     IDashboardRepo,
+    IPublicDashboardRepo,
 )
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_folder_permission_repo import (
     IFolderPermissionRepo,
@@ -16,7 +17,10 @@ from monitoring.domain.i_repo.i_visualization_platform_repo.i_folder_repo import
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_service_account_repo import (
     IServiceAccountRepo,
 )
-from monitoring.domain.visualization_platform.dashboard import Dashboard
+from monitoring.domain.visualization_platform.dashboard import (
+    Dashboard,
+    PublicDashboard,
+)
 from monitoring.domain.visualization_platform.folder import (
     FolderPermission,
     FolderPermissionLevel,
@@ -28,6 +32,7 @@ from monitoring.infra.grafana.grafana_api import GrafanaAPI
 from monitoring.infra.repo.task_result_repo import TaskResultRepo
 from monitoring.infra.repo.visualization_platform_repo.dashboard_repo import (
     DashboardRepo,
+    PublicDashboardRepo,
 )
 from monitoring.infra.repo.visualization_platform_repo.folder_permission_repo import (
     FolderPermissionRepo,
@@ -47,6 +52,7 @@ folder_repo: IFolderRepo = FolderRepo()
 service_account_repo: IServiceAccountRepo = ServiceAccountRepo()
 folder_permission_repo: IFolderPermissionRepo = FolderPermissionRepo()
 dashboard_repo: IDashboardRepo = DashboardRepo()
+public_dashboard_repo: IPublicDashboardRepo = PublicDashboardRepo()
 
 
 @locking_task(max_retries=3, default_retry_delay=2)
@@ -190,7 +196,17 @@ def task_create_grafana_public_dashboard(self, task_id: str, project_id: str):
         raise RuntimeError(f"Dashboard UID is None for project {project_id}")
 
     result = grafana_api.create_public_dashboard(dashboard.uid)
+    public_uid = result["uid"]
+    public_url = result["publicUrl"]
 
+    public_dashboard = PublicDashboard(
+        id=str(uuid.uuid4()),
+        uid=public_uid,
+        dashboard_id=dashboard.id,
+        project_id=project_id,
+        public_url=public_url,
+    )
+    public_dashboard_repo.save(public_dashboard)
     return result
 
 

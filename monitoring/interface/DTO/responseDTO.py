@@ -4,19 +4,14 @@ from pydantic import BaseModel
 
 
 # 1) Dashboard 응답용 Pydantic 모델
-class DashboardResponse(BaseModel):
+class PublicDashboardResponse(BaseModel):
     id: str
-    uid: Optional[str]
-    title: Optional[str]
-    folder_uid: Optional[str]
-    url: Optional[str]
-    panels: List[Dict[str, Any]] = []
-    tags: List[str] = []
-    data_sources: List[str] = []
+    uid: str
+    public_url: str
 
 
 # 2) MonitoringProjectWithDashboardDto 응답용 Pydantic 모델
-class MonitoringProjectWithDashboardResponse(BaseModel):
+class MonitoringProjectWithPublicDashboardResponse(BaseModel):
     id: str
     user_id: str
     name: str
@@ -25,16 +20,17 @@ class MonitoringProjectWithDashboardResponse(BaseModel):
     service_account_id: Optional[str] = None
     description: Optional[str] = None
     user_folder_id: Optional[str] = None
-    dashboard: DashboardResponse | None = None
+    dashboard: str | None = None
+    public_dashboard: PublicDashboardResponse | None = None
 
 
 class APIResponse(BaseModel):
-    data: MonitoringProjectWithDashboardResponse
+    data: MonitoringProjectWithPublicDashboardResponse
     message: str
 
 
 class PagedProjectsResponse(BaseModel):
-    items: List[MonitoringProjectWithDashboardResponse]
+    items: List[MonitoringProjectWithPublicDashboardResponse]
     total_items: int
     total_pages: int
     current_page: int

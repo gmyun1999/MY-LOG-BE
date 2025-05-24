@@ -3,6 +3,7 @@ from abc import abstractmethod
 from monitoring.domain.monitoring_project import (
     MonitoringProject,
     MonitoringProjectWithDashboardDto,
+    MonitoringProjectWithPublicDashboardDto,
 )
 
 
@@ -31,3 +32,13 @@ class IMonitoringProjectRepo:
     def find_all_with_dashboard_dto_by_user(
         self, user_id: str
     ) -> list[MonitoringProjectWithDashboardDto]: ...
+
+    @abstractmethod
+    def find_with_public_dashboard_dto(
+        self, project_id: str
+    ) -> MonitoringProjectWithPublicDashboardDto | None: ...
+
+    @abstractmethod
+    def find_all_with_public_dashboard_dto_by_user(
+        self, user_id: str
+    ) -> list[MonitoringProjectWithPublicDashboardDto]: ...

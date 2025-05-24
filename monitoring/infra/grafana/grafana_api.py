@@ -130,7 +130,14 @@ class GrafanaAPI(VisualizationPlatformProvider):
         if response.status_code != 200:
             print("Error response:", response.text)
             response.raise_for_status()
-        return response.json()
+        result = response.json()
+        access_token = result.get("accessToken")
+        if access_token:
+            # result["publicUrl"] = f"{self.base_url}/public-dashboard/{access_token}"
+            result["publicUrl"] = (
+                f"http://localhost:3000/public-dashboards/{access_token}"
+            )
+        return result
 
     @override
     def get_folders(self) -> list[dict[str, Any]]:

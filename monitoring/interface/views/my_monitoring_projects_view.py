@@ -9,7 +9,7 @@ from common.interface.validators import validate_query_params
 from common.service.paging import Paginator
 from monitoring.interface.DTO.responseDTO import (
     APIResponseList,
-    MonitoringProjectWithDashboardResponse,
+    MonitoringProjectWithPublicDashboardResponse,
     PagedProjectsResponse,
 )
 from monitoring.service.monitoring_project_service import MonitoringProjectService
@@ -87,8 +87,8 @@ class MyMonitoringProjectsView(APIView):
         )
 
         # DTO → Pydantic 변환
-        items: list[MonitoringProjectWithDashboardResponse] = [
-            MonitoringProjectWithDashboardResponse(**dto.to_dict())
+        items: list[MonitoringProjectWithPublicDashboardResponse] = [
+            MonitoringProjectWithPublicDashboardResponse(**dto.to_dict())
             for dto in paged.items
         ]
         payload = APIResponseList(

@@ -14,6 +14,7 @@ from monitoring.domain.log_agent.log_router import LogRouterConfigContext
 from monitoring.domain.monitoring_project import (
     MonitoringProject,
     MonitoringProjectWithDashboardDto,
+    MonitoringProjectWithPublicDashboardDto,
     MonitoringType,
     ProjectStatus,
 )
@@ -63,19 +64,23 @@ class MonitoringProjectService:
         self.project_repo.save(project)
         return project
 
-    def get_project_detail(self, project_id: str) -> MonitoringProjectWithDashboardDto:
-        project_with_dashboard = self.project_repo.find_with_dashboard_dto(project_id)
-        if not project_with_dashboard:
+    def get_project_detail(
+        self, project_id: str
+    ) -> MonitoringProjectWithPublicDashboardDto:
+        project_with_public_dashboard = (
+            self.project_repo.find_with_public_dashboard_dto(project_id)
+        )
+        if not project_with_public_dashboard:
             raise NotExistException()
-        return project_with_dashboard
+        return project_with_public_dashboard
 
     def get_my_projects_detail(
         self,
         user_id: str,
         page: int = 1,
         page_size: int = 10,
-    ) -> PagedResult[MonitoringProjectWithDashboardDto]:
-        all_dtos = self.project_repo.find_all_with_dashboard_dto_by_user(user_id)
+    ) -> PagedResult[MonitoringProjectWithPublicDashboardDto]:
+        all_dtos = self.project_repo.find_all_with_public_dashboard_dto_by_user(user_id)
         return Paginator.paginate(all_dtos, page=page, page_size=page_size)
 
     def start_log_project_step1(

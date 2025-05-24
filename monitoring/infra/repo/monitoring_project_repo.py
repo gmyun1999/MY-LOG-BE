@@ -5,10 +5,14 @@ from monitoring.domain.monitoring_project import (
     AgentProvisioningContext,
     MonitoringProject,
     MonitoringProjectWithDashboardDto,
+    MonitoringProjectWithPublicDashboardDto,
     MonitoringType,
     ProjectStatus,
 )
-from monitoring.domain.visualization_platform.dashboard import Dashboard
+from monitoring.domain.visualization_platform.dashboard import (
+    Dashboard,
+    PublicDashboard,
+)
 from monitoring.infra.models.monitoring_project_model import MonitoringProjectModel
 
 
@@ -23,6 +27,7 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
                 "project_type": project.project_type.value,
                 "status": project.status.value,
                 "dashboard_id": project.dashboard_id,
+                "public_dashboard_id": project.public_dashboard_id,
                 "service_account_id": project.service_account_id,
                 "user_folder_id": project.user_folder_id,
                 "agent_context": (
@@ -44,6 +49,7 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
                 project_type=MonitoringType(obj.project_type),
                 status=ProjectStatus(obj.status),
                 dashboard_id=obj.dashboard_id,
+                public_dashboard_id=obj.public_dashboard_id,
                 user_folder_id=obj.user_folder_id,
                 agent_context=(
                     AgentProvisioningContext(**obj.agent_context)
@@ -121,6 +127,73 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
         dtos: list[MonitoringProjectWithDashboardDto] = []
         for pid in ids:
             dto = self.find_with_dashboard_dto(pid)
+            if dto is not None:
+                dtos.append(dto)
+        return dtos
+
+    def find_with_public_dashboard_dto(
+        self, project_id: str
+    ) -> MonitoringProjectWithPublicDashboardDto | None:
+        PUBLIC_DASHBOARD_FIELD_KEYS = [
+            PublicDashboard.FIELD_ID,
+            PublicDashboard.FIELD_UID,
+            PublicDashboard.FIELD_PUBLIC_URL,
+            PublicDashboard.FIELD_PROJECT_ID,
+            PublicDashboard.FIELD_DASHBOARD_ID,
+        ]
+
+        # 1) 도메인 객체 조회
+        project_domain = self.find_by_id(project_id)
+        if project_domain is None:
+            return None
+
+        project_dict = project_domain.to_dict(
+            excludes=[MonitoringProject.FIELD_AGENT_CONTEXT]
+        )
+
+        # 2) MonitoringProjectModel + dashboard + public_dashboard 조회
+        try:
+            project_obj = MonitoringProjectModel.objects.select_related(
+                "public_dashboard"
+            ).get(id=project_id)
+        except MonitoringProjectModel.DoesNotExist:
+            return None
+
+        # print("project_id:", project_id)
+        project_obj1 = MonitoringProjectModel.objects.get(id=project_id)
+        print("public_dashboard_id:", project_obj1.public_dashboard_id)
+        # 3) public_dashboard_model이 None이면 그대로 None 할당
+        public_dashboard_model = project_obj.public_dashboard
+        if public_dashboard_model is None:
+            public_dashboard_data = None
+        else:
+            public_dashboard_data = {
+                key: getattr(public_dashboard_model, key)
+                for key in PUBLIC_DASHBOARD_FIELD_KEYS
+            }
+
+        # 4) DTO 생성
+        combined = {
+            **project_dict,
+            "public_dashboard": public_dashboard_data,
+        }
+
+        a = MonitoringProjectWithPublicDashboardDto.from_dict(combined)
+        print(combined)
+        return a
+
+    def find_all_with_public_dashboard_dto_by_user(
+        self, user_id: str
+    ) -> list[MonitoringProjectWithPublicDashboardDto]:
+        # 1) 사용자 프로젝트 ID 목록 조회
+        ids = MonitoringProjectModel.objects.filter(user_id=user_id).values_list(
+            "id", flat=True
+        )
+
+        # 2) 각 ID별로 DTO 생성
+        dtos: list[MonitoringProjectWithPublicDashboardDto] = []
+        for pid in ids:
+            dto = self.find_with_public_dashboard_dto(pid)
             if dto is not None:
                 dtos.append(dto)
         return dtos

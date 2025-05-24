@@ -6,6 +6,7 @@ from django.utils import timezone
 from monitoring.domain.i_repo.i_task_result_repo import ITaskResultRepo
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_dashbaord_repo import (
     IDashboardRepo,
+    IPublicDashboardRepo,
 )
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_folder_permission_repo import (
     IFolderPermissionRepo,
@@ -26,6 +27,7 @@ from monitoring.infra.grafana.grafana_template_provider import GrafanaTemplatePr
 from monitoring.infra.repo.task_result_repo import TaskResultRepo
 from monitoring.infra.repo.visualization_platform_repo.dashboard_repo import (
     DashboardRepo,
+    PublicDashboardRepo,
 )
 from monitoring.infra.repo.visualization_platform_repo.folder_permission_repo import (
     FolderPermissionRepo,
@@ -65,6 +67,7 @@ class MonitoringProvisionService:
         self.account_repo: IServiceAccountRepo = ServiceAccountRepo()
         self.folder_permissions_repo: IFolderPermissionRepo = FolderPermissionRepo()
         self.dashboard_repo: IDashboardRepo = DashboardRepo()
+        self.public_dashboard_repo: IPublicDashboardRepo = PublicDashboardRepo()
 
     def _make_folder_name(self, user_id: str, user_name: str) -> str:
         return f"User_{user_id}_{user_name}'s Folder"
@@ -149,10 +152,11 @@ class MonitoringProvisionService:
                 project_id=monitoring_project_id,
             )
 
+        # dashboard
         exists = self.dashboard_repo.find_by_project_id(
             project_id=monitoring_project_id
         )
-        dashboard_dto = public_dto = None
+        dashboard_dto = None
         if not exists:
             dash_id = str(uuid.uuid4())
             dashboard_dto = CreateDashboardDTO(
@@ -162,6 +166,13 @@ class MonitoringProvisionService:
                 dashboard_title=self._make_dashboard_title(user),
                 dashboard_config=self.create_logs_dashboard_template(user),
             )
+
+        # public dashboard
+        exists_public = self.public_dashboard_repo.find_by_project_id(
+            project_id=monitoring_project_id
+        )
+        public_dto = None
+        if not exists_public:
             pub_id = str(uuid.uuid4())
             public_dto = CreatePublicDashboardDTO(
                 task_id=pub_id,

@@ -42,6 +42,16 @@ class MonitoringProjectModel(models.Model):
         related_name="monitoring_project",
     )
 
+    public_dashboard = models.OneToOneField(
+        "PublicDashboardModel",
+        to_field="id",
+        on_delete=models.SET_NULL,
+        db_constraint=False,
+        null=True,
+        blank=True,
+        related_name="monitoring_project",
+    )
+
     service_account = models.OneToOneField(
         "ServiceAccountModel",
         to_field="id",
