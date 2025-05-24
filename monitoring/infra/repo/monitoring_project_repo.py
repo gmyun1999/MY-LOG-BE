@@ -76,32 +76,37 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
             Dashboard.FIELD_FOLDER_UID,
             Dashboard.FIELD_URL,
         ]
-        # 1) 기존처럼 도메인 객체 조회
+
+        # 1) 도메인 객체 조회
         project_domain = self.find_by_id(project_id)
         if project_domain is None:
             return None
-
-        # 기본 필드 직렬화 (agent_context 제외)
         project_dict = project_domain.to_dict(
             excludes=[MonitoringProject.FIELD_AGENT_CONTEXT]
         )
 
-        # Dashboard 모델에서 dict 생성
-        dashboard_model = (
-            MonitoringProjectModel.objects.select_related("dashboard")
-            .get(id=project_id)
-            .dashboard
-        )
-        dashboard_dict = {
-            key: getattr(dashboard_model, key) for key in DASHBOARD_FIELD_KEYS
-        }
+        # 2) MonitoringProjectModel + dashboard 조회
+        try:
+            project_obj = MonitoringProjectModel.objects.select_related(
+                "dashboard"
+            ).get(id=project_id)
+        except MonitoringProjectModel.DoesNotExist:
+            return None
 
-        # combined 에 agent_context 없이 넣기
+        # 3) dashboard_model이 None이면 그대로 None 할당
+        dashboard_model = project_obj.dashboard
+        if dashboard_model is None:
+            dashboard_data = None
+        else:
+            dashboard_data = {
+                key: getattr(dashboard_model, key) for key in DASHBOARD_FIELD_KEYS
+            }
+
+        # 4) DTO 생성
         combined = {
             **project_dict,
-            "dashboard": dashboard_dict,
+            "dashboard": dashboard_data,
         }
-
         return MonitoringProjectWithDashboardDto.from_dict(combined)
 
     def find_all_with_dashboard_dto_by_user(

@@ -66,7 +66,7 @@ class MyMonitoringProjectsView(APIView):
         },
     )
     @validate_token(
-        roles=[UserRole.USER, UserRole.USER],
+        roles=[UserRole.USER, UserRole.ADMIN],
         validate_type=UserTokenType.ACCESS,
     )
     @validate_query_params(MyProjectsQueryParams)

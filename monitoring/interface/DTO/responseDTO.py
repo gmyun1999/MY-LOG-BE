@@ -25,7 +25,7 @@ class MonitoringProjectWithDashboardResponse(BaseModel):
     service_account_id: Optional[str] = None
     description: Optional[str] = None
     user_folder_id: Optional[str] = None
-    dashboard: DashboardResponse
+    dashboard: DashboardResponse | None = None
 
 
 class APIResponse(BaseModel):

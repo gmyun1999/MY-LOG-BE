@@ -41,7 +41,7 @@ class MyMonitoringProjectView(APIView):
         },
     )
     @validate_token(
-        roles=[UserRole.USER, UserRole.USER],
+        roles=[UserRole.USER, UserRole.ADMIN],
         validate_type=UserTokenType.ACCESS,
     )
     def get(self, request, project_id: str, token_payload: UserTokenPayload):
