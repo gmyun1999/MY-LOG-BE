@@ -6,7 +6,7 @@ class VisualizationPlatformTemplateProvider(ABC):
     @abstractmethod
     def render_logs_dashboard_json(
         self,
-        user_id: str,
+        project_id: str,
         dashboard_title: str,
         dashboard_uid: str,
         data_source_uid: str = "Elasticsearch",

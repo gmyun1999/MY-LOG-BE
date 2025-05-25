@@ -74,6 +74,18 @@ class LogCollectorConfigContext(BaseModel):
             if not model.multiline_pattern:
                 pass
                 # raise ValueError("plain 타입에는  multiline_pattern 필수")
+            if model.timestamp_field:
+                raise ValueError("plain text 타입에는 timestamp_field 들어갈수없습니다")
+            if model.timestamp_json_path:
+                raise ValueError(
+                    "plain text 타입에는 timestamp_json_path 들어갈수없습니다"
+                )
+            if model.log_level:
+                raise ValueError("plain text 타입에는 log_level 들어갈수없습니다")
+            if model.log_level_json_path:
+                raise ValueError(
+                    "plain text 타입에는 log_level_json_path 들어갈수없습니다"
+                )
 
         else:
             if not model.timestamp_field:

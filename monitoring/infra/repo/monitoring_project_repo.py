@@ -245,5 +245,4 @@ class MonitoringProjectRepo(IMonitoringProjectRepo):
             "dashboard": dashboard_data,
             "public_dashboard": public_dashboard_data,
         }
-        print(combined)
         return MonitoringProjectWithBothDashboardsDto.from_dict(combined)

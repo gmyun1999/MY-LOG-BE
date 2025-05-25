@@ -73,9 +73,6 @@ def task_create_grafana_folder(self, task_id: str, user_id: str, folder_name: st
     )
 
     folder_repo.save(folder)
-    print(
-        f"create folder for user {user_id}!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    )
     return result
 
 

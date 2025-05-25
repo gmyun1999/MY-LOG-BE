@@ -32,26 +32,11 @@ class FileBeats(ILogAgentProvider):
         self, context: LogCollectorConfigContext
     ) -> RenderedConfigFile:
 
-        ctx: dict[str, Any] = context.model_dump()
-
-        # []. <>, | 등 구분자 jinja2에서 처리가능하게 변경
-        raw: list[str] = ctx.get("custom_plain_fields", [])
-        parts: list[str] = []
-        for token in raw:
-            # 접두·키·접미 분리
-            m = re.match(r"^(\W*?)([A-Za-z][A-Za-z0-9_]*)(\W*?)$", token)
-            if m:
-                prefix, key, suffix = m.groups()
-                parts.append(f"{prefix}%{{{key}}}{suffix}")
-            else:
-                parts.append(token)
-
-        ctx["tokenizer_parts"] = parts
-
-        # 템플릿 렌더링
         if context.input_type is LogInputType.PLAIN:
+            ctx = self._build_plain_log_context(context)
             tpl_name = "filebeat_plain_text.j2"
         else:
+            ctx = self._build_json_log_context(context)
             tpl_name = "filebeat_json.j2"
 
         rendered = self.template_provider.render(tpl_name, ctx)
@@ -60,6 +45,44 @@ class FileBeats(ILogAgentProvider):
         return RenderedConfigFile(
             filename=f"collector_{context.project_id}.yml", content=data
         )
+
+    def _build_plain_log_context(
+        self, context: LogCollectorConfigContext
+    ) -> dict[str, Any]:
+        raw_fields = context.custom_plain_fields or []
+        return {
+            "project_id": context.project_id,
+            "hosts": context.hosts,
+            "log_paths": context.log_paths,
+            "multiline_pattern": context.multiline_pattern,
+            "filters": context.filters,
+            "tokenizer_parts": self._build_tokenizer_parts(raw_fields),
+            "fields": list({flt.field for flt in context.filters}),
+        }
+
+    def _build_json_log_context(
+        self, context: LogCollectorConfigContext
+    ) -> dict[str, Any]:
+        return {
+            "project_id": context.project_id,
+            "hosts": context.hosts,
+            "log_paths": context.log_paths,
+            "filters": context.filters,
+            "timestamp_field": context.timestamp_field,
+            "timestamp_json_path": context.timestamp_json_path,
+            "log_level": context.log_level,
+            "log_level_json_path": context.log_level_json_path,
+            "custom_json_fields": context.custom_json_fields,
+        }
+
+    def _build_tokenizer_parts(self, tokens: list[str]) -> list[str]:
+        parts: list[str] = []
+        for token in tokens:
+            if re.fullmatch(r"\+?[A-Za-z_][A-Za-z0-9_]*", token):
+                parts.append(f"%{{{token}}}")
+            else:
+                parts.append(token)
+        return parts
 
     @override
     def create_log_router_config(

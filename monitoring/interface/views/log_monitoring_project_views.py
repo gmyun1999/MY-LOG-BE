@@ -85,17 +85,14 @@ class LogMonitoringProjectStep1View(APIView):
             project_id=project_id,
             hosts=["127.0.0.1:5044"],
             log_paths=body.log_paths,
-            # input_type=(
-            #     LogInputType.JSON if body.timestamp_field else LogInputType.PLAIN
-            # ),
-            input_type=LogInputType.PLAIN,  # test용
+            input_type=(
+                LogInputType.JSON if body.timestamp_field else LogInputType.PLAIN
+            ),
             multiline_pattern=body.multiline_pattern,
             custom_plain_fields=body.custom_plain_fields,
-            timestamp_field=None,  # test용
-            # timestamp_field=body.timestamp_field,
+            timestamp_field=body.timestamp_field,
             timestamp_json_path=body.timestamp_json_path,
-            log_level=None,  # test용
-            # log_level=body.log_level,
+            log_level=body.log_level,
             log_level_json_path=body.log_level_json_path,
             custom_json_fields=body.custom_json_fields,
             filters=body.filters,

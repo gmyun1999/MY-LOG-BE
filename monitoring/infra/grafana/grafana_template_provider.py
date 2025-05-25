@@ -15,7 +15,7 @@ class GrafanaTemplateProvider(VisualizationPlatformTemplateProvider):
 
     def render_logs_dashboard_json(
         self,
-        user_id: str,
+        project_id: str,
         dashboard_title: str,
         dashboard_uid: str,
         data_source_uid: str = "Elasticsearch",
@@ -23,7 +23,7 @@ class GrafanaTemplateProvider(VisualizationPlatformTemplateProvider):
         dash_board_json = self.template_provider.render(
             "grafana_log_dashboard_json.j2",
             {
-                "user_id": user_id,
+                "project_id": project_id,
                 "dashboard_title": dashboard_title,
                 "dashboard_uid": dashboard_uid,
                 "data_source_uid": data_source_uid,

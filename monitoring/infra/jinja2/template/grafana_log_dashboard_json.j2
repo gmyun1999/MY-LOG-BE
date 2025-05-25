@@ -197,7 +197,7 @@
               "type": "count"
             }
           ],
-          "query": "level: $level AND user_id: {{ user_id }}",
+          "query": "level: $level AND project_id: {{ project_id }}",
           "refId": "A",
           "timeField": "@timestamp"
         }
@@ -359,7 +359,7 @@
               "type": "logs"
             }
           ],
-          "query": "level: $level AND user_id: {{ user_id }}",
+          "query": "level: $level AND project_id: {{ project_id }}",
           "refId": "A",
           "timeField": "@timestamp"
         }
@@ -538,7 +538,7 @@
               "type": "count"
             }
           ],
-          "query": "level: $level AND user_id: {{ user_id }}",
+          "query": "level: $level AND project_id: {{ project_id }}",
           "refId": "A",
           "timeField": "@timestamp"
         }
@@ -549,7 +549,7 @@
   ],
   "refresh": "5s",
   "schemaVersion": 41,
-  "tags": ["logs", "elasticsearch", "user-{{ user_id }}"],
+  "tags": ["logs", "elasticsearch", "project_id-{{ project_id }}"],
   "templating": {
     "list": [
       {

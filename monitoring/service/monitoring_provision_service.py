@@ -82,8 +82,8 @@ class MonitoringProvisionService:
     def _make_token_name(self, user_id: str, project_id: str) -> str:
         return f"token-{user_id}-{project_id}"
 
-    def _make_dashboard_title(self, user: User, project_name: str) -> str:
-        return f"{user.name}'s Logs Dashboard for {project_name}"
+    def _make_dashboard_title(self, project_name: str) -> str:
+        return f"Logs Dashboard for {project_name}"
 
     def _save_task_pending(self, task_name: str) -> str:
         task_id = str(uuid.uuid4())
@@ -98,11 +98,11 @@ class MonitoringProvisionService:
         return task_id
 
     def create_logs_dashboard_template(
-        self, user: User, project_name: str
+        self, project_id: str, project_name: str
     ) -> dict[str, Any]:
         return self.template_provider.render_logs_dashboard_json(
-            user_id=user.id,
-            dashboard_title=self._make_dashboard_title(user, project_name),
+            project_id=project_id,
+            dashboard_title=self._make_dashboard_title(project_name),
             dashboard_uid=str(uuid.uuid4()),
         )
 
@@ -171,9 +171,9 @@ class MonitoringProvisionService:
                 task_id=dash_id,
                 user_id=user.id,
                 project_id=monitoring_project_id,
-                dashboard_title=self._make_dashboard_title(user, project.name),
+                dashboard_title=self._make_dashboard_title(project.name),
                 dashboard_config=self.create_logs_dashboard_template(
-                    user, project.name
+                    monitoring_project_id, project.name
                 ),
             )
 

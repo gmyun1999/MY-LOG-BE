@@ -99,7 +99,7 @@ class MonitoringProjectService:
         다운로드 링크 반환
         """
         with transaction.atomic():
-            project_id = str(uuid.uuid4())
+            project_id = log_collector_ctx.project_id
             agent_ctx = self.harvester_agent_service.download_log_agent_set_up_script(
                 resource_id=project_id,
                 log_collector_ctx=log_collector_ctx,

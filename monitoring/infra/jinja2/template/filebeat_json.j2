@@ -20,6 +20,11 @@ processors:
   - add_docker_metadata: ~
   - add_kubernetes_metadata: ~
 
+  - add_fields:
+      target: ""
+      fields:
+        project_id: "{{ project_id }}"
+        
   # ── 필수 필드: timestamp 복사 ──
   - copy_fields:
       fields:
