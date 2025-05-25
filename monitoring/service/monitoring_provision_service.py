@@ -18,6 +18,7 @@ from monitoring.domain.i_repo.i_visualization_platform_repo.i_folder_repo import
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_service_account_repo import (
     IServiceAccountRepo,
 )
+from monitoring.domain.monitoring_project import MonitoringProject
 from monitoring.domain.task_result import (
     MonitoringDashboardTaskName,
     TaskResult,
@@ -108,11 +109,11 @@ class MonitoringProvisionService:
     def provision_log_dashboard(
         self,
         user: User,
-        monitoring_project_id: str,
+        project: MonitoringProject,
     ) -> str:
         # 1) DTO 생성 task 저장은 bulk로 처리함
 
-        project_obj = self.monitoring_project_repo.find_by_id(monitoring_project_id)
+        monitoring_project_id = project.id
 
         user_folder_dto = None
         if not self.folder_repo.find_by_user_id(user.id):
@@ -170,8 +171,10 @@ class MonitoringProvisionService:
                 task_id=dash_id,
                 user_id=user.id,
                 project_id=monitoring_project_id,
-                dashboard_title=self._make_dashboard_title(user, project_obj.name),
-                dashboard_config=self.create_logs_dashboard_template(user),
+                dashboard_title=self._make_dashboard_title(user, project.name),
+                dashboard_config=self.create_logs_dashboard_template(
+                    user, project.name
+                ),
             )
 
         # public dashboard

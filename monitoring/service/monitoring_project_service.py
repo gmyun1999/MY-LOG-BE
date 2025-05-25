@@ -149,5 +149,5 @@ class MonitoringProjectService:
 
         # 로그 대시보드 프로비저닝
         self.monitoring_provision_service.provision_log_dashboard(
-            user=user, monitoring_project_id=project_id
+            user=user, project=project
         )
