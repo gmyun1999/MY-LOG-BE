@@ -72,7 +72,8 @@ class LogCollectorConfigContext(BaseModel):
     def check_input_specific(cls, model):
         if model.input_type is LogInputType.PLAIN:
             if not model.multiline_pattern:
-                raise ValueError("plain 타입에는  multiline_pattern 필수")
+                pass
+                # raise ValueError("plain 타입에는  multiline_pattern 필수")
 
         else:
             if not model.timestamp_field:

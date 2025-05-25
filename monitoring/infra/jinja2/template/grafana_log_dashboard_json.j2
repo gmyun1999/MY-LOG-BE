@@ -550,6 +550,39 @@
   "refresh": "5s",
   "schemaVersion": 41,
   "tags": ["logs", "elasticsearch", "user-{{ user_id }}"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "All",
+          "value": ["$__all"]
+        },
+        "datasource": {
+          "type": "elasticsearch",
+          "uid": "{{ data_source_uid }}"
+        },
+        "definition": "{\"find\": \"terms\", \"field\": \"level\"}",
+        "includeAll": true,
+        "multi": true,
+        "name": "level",
+        "options": [],
+        "query": "{\"find\": \"terms\", \"field\": \"level\"}",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "datasource": {
+          "type": "elasticsearch",
+          "uid": "{{ data_source_uid }}"
+        },
+        "filters": [],
+        "label": "Filters",
+        "name": "Filters",
+        "type": "adhoc"
+      }
+    ]
+  },
   "time": {
     "from": "now-6h",
     "to": "now"

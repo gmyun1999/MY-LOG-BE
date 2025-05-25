@@ -42,7 +42,7 @@ class FileBeats(ILogAgentProvider):
             m = re.match(r"^(\W*?)([A-Za-z][A-Za-z0-9_]*)(\W*?)$", token)
             if m:
                 prefix, key, suffix = m.groups()
-                parts.append(f"{prefix}%{{{key}->}}{suffix}")
+                parts.append(f"{prefix}%{{{key}}}{suffix}")
             else:
                 parts.append(token)
 
