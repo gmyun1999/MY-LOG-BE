@@ -31,13 +31,15 @@ class LogMonitoringProjectStep1View(APIView):
         log_paths: list[str]
         project_name: str
         project_description: str
-        multiline_pattern: str | None = None
-        timestamp_field: str | None = None
-        timestamp_json_path: str | None = None
-        log_level: str | None = None
-        log_level_json_path: str | None = None
+
+        multiline_pattern: str | None = None  # plain 로그의 멀티라인 패턴
+        custom_plain_fields: list[str] = []  # plain 로그의  필드
+
+        timestamp_field: str | None = None  # json 로그의 타임스템프 필드
+        timestamp_json_path: str | None = None  # json 로그의 타임스탬프 필드 경로
+        log_level: str | None = None  # json 로그의 로그 레벨 필드
+        log_level_json_path: str | None = None  # json 로그의 로그 레벨 필드 경로
         custom_json_fields: list[JsonFieldMapping] = []
-        custom_plain_fields: list[str] = []
         filters: list[FilterCondition] = []
         platform: PlatformType = PlatformType.WINDOWS
 
@@ -83,14 +85,17 @@ class LogMonitoringProjectStep1View(APIView):
             project_id=project_id,
             hosts=["127.0.0.1:5044"],
             log_paths=body.log_paths,
-            input_type=(
-                LogInputType.JSON if body.timestamp_field else LogInputType.PLAIN
-            ),
+            # input_type=(
+            #     LogInputType.JSON if body.timestamp_field else LogInputType.PLAIN
+            # ),
+            input_type=LogInputType.PLAIN,  # test용
             multiline_pattern=body.multiline_pattern,
             custom_plain_fields=body.custom_plain_fields,
-            timestamp_field=body.timestamp_field,
+            timestamp_field=None,  # test용
+            # timestamp_field=body.timestamp_field,
             timestamp_json_path=body.timestamp_json_path,
-            log_level=body.log_level,
+            log_level=None,  # test용
+            # log_level=body.log_level,
             log_level_json_path=body.log_level_json_path,
             custom_json_fields=body.custom_json_fields,
             filters=body.filters,

@@ -6,10 +6,19 @@ input {
 
 filter {
   date {
-    match => ["@timestamp", "ISO8601"]
+    match => [
+      "timestamp",
+      "ISO8601",                         
+      "UNIX_MS",                
+      "UNIX",                         
+      "yyyy-MM-dd HH:mm:ss,SSS",         
+      "yyyy/MM/dd HH:mm:ss",             
+      "MM/dd/yyyy HH:mm:ss Z",           
+      "dd/MMM/yyyy:HH:mm:ss Z"             
+    ]
     target => "@timestamp"
-  }
 }
+  }
 
 output {
   rabbitmq {

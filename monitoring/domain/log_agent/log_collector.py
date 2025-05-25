@@ -33,13 +33,17 @@ class LogCollectorConfigContext(BaseModel):
 
     FIELD_MULTILINE_PATTERN: str = "multiline_pattern"
 
-    FIELD_TIMESTAMP_FIELD: str = "timestamp_field"
-    FIELD_TIMESTAMP_JSON_PATH: str = "timestamp_json_path"
+    FIELD_TIMESTAMP_FIELD: str = "timestamp_field"  # json 로그의 타임스템프 필드
+    FIELD_TIMESTAMP_JSON_PATH: str = (
+        "timestamp_json_path"  # json 로그의 타임스탬프 필드 경로
+    )
 
-    FIELD_LOG_LEVEL: str = "log_level"
-    FIELD_LOG_LEVEL_JSON_PATH: str = "log_level_json_path"
+    FIELD_LOG_LEVEL: str = "log_level"  # json 로그의 로그 레벨 필드
+    FIELD_LOG_LEVEL_JSON_PATH: str = (
+        "log_level_json_path"  # json 로그의 로그 레벨 필드 경로
+    )
 
-    FIELD_CUSTOM_JSON_FIELDS: str = "custom_json_fields"
+    FIELD_CUSTOM_JSON_FIELDS: str = "custom_json_fields"  # 사용자 정의 json 필드
 
     FIELD_FILTERS: str = "filters"
 

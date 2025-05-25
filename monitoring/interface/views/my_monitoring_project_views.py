@@ -56,7 +56,6 @@ class MyMonitoringProjectView(APIView):
         try:
             self.project_service.check_permission(user, project_id)
 
-            # ① DTO 받아오기
             dto: MonitoringProjectWithBothDashboardsDto = (
                 self.project_service.get_project_detail(
                     project_id=project_id,

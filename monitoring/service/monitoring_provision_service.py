@@ -3,6 +3,7 @@ from typing import Any
 
 from django.utils import timezone
 
+from monitoring.domain.i_repo.i_monitoring_project_repo import IMonitoringProjectRepo
 from monitoring.domain.i_repo.i_task_result_repo import ITaskResultRepo
 from monitoring.domain.i_repo.i_visualization_platform_repo.i_dashbaord_repo import (
     IDashboardRepo,
@@ -24,6 +25,7 @@ from monitoring.domain.task_result import (
 )
 from monitoring.infra.celery.task_executor.grafana_executor import GrafanaTaskExecutor
 from monitoring.infra.grafana.grafana_template_provider import GrafanaTemplateProvider
+from monitoring.infra.repo.monitoring_project_repo import MonitoringProjectRepo
 from monitoring.infra.repo.task_result_repo import TaskResultRepo
 from monitoring.infra.repo.visualization_platform_repo.dashboard_repo import (
     DashboardRepo,
@@ -68,6 +70,7 @@ class MonitoringProvisionService:
         self.folder_permissions_repo: IFolderPermissionRepo = FolderPermissionRepo()
         self.dashboard_repo: IDashboardRepo = DashboardRepo()
         self.public_dashboard_repo: IPublicDashboardRepo = PublicDashboardRepo()
+        self.monitoring_project_repo: IMonitoringProjectRepo = MonitoringProjectRepo()
 
     def _make_folder_name(self, user_id: str, user_name: str) -> str:
         return f"User_{user_id}_{user_name}'s Folder"
@@ -78,8 +81,8 @@ class MonitoringProvisionService:
     def _make_token_name(self, user_id: str, project_id: str) -> str:
         return f"token-{user_id}-{project_id}"
 
-    def _make_dashboard_title(self, user: User) -> str:
-        return f"{user.name}'s Logs Dashboard"
+    def _make_dashboard_title(self, user: User, project_name: str) -> str:
+        return f"{user.name}'s Logs Dashboard for {project_name}"
 
     def _save_task_pending(self, task_name: str) -> str:
         task_id = str(uuid.uuid4())
@@ -93,10 +96,12 @@ class MonitoringProvisionService:
         )
         return task_id
 
-    def create_logs_dashboard_template(self, user: User) -> dict[str, Any]:
+    def create_logs_dashboard_template(
+        self, user: User, project_name: str
+    ) -> dict[str, Any]:
         return self.template_provider.render_logs_dashboard_json(
             user_id=user.id,
-            dashboard_title=self._make_dashboard_title(user),
+            dashboard_title=self._make_dashboard_title(user, project_name),
             dashboard_uid=str(uuid.uuid4()),
         )
 
@@ -106,6 +111,8 @@ class MonitoringProvisionService:
         monitoring_project_id: str,
     ) -> str:
         # 1) DTO 생성 task 저장은 bulk로 처리함
+
+        project_obj = self.monitoring_project_repo.find_by_id(monitoring_project_id)
 
         user_folder_dto = None
         if not self.folder_repo.find_by_user_id(user.id):
@@ -163,7 +170,7 @@ class MonitoringProvisionService:
                 task_id=dash_id,
                 user_id=user.id,
                 project_id=monitoring_project_id,
-                dashboard_title=self._make_dashboard_title(user),
+                dashboard_title=self._make_dashboard_title(user, project_obj.name),
                 dashboard_config=self.create_logs_dashboard_template(user),
             )
 
