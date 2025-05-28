@@ -4,6 +4,7 @@ from unittest.util import strclass
 import requests
 from typing_extensions import override
 
+from config import settings
 from config.settings import GRAFANA_ADMIN_API_KEY, GRAFANA_URL
 from monitoring.service.i_visualization_platform.i_visualization_platform_provider import (
     VisualizationPlatformProvider,
@@ -118,6 +119,10 @@ class GrafanaAPI(VisualizationPlatformProvider):
         퍼블릭 대시보드 생성 - 대시보드 UID를 받아 해당 대시보드의 퍼블릭 버전 생성
         생성된 퍼블릭 대시보드의 정보(UID, accessToken 등) 반환
         """
+        grafana_local_url = self.base_url
+        if settings.ENV == "localhost":
+            grafana_local_url = "http://localhost:3000"
+
         url = f"{self.base_url}/api/dashboards/uid/{dashboard_uid}/public-dashboards"
         data = {
             "isEnabled": True,
@@ -127,15 +132,16 @@ class GrafanaAPI(VisualizationPlatformProvider):
         }
 
         response = requests.post(url, json=data, headers=self.headers)
+
         if response.status_code != 200:
             print("Error response:", response.text)
             response.raise_for_status()
         result = response.json()
         access_token = result.get("accessToken")
+
         if access_token:
-            # result["publicUrl"] = f"{self.base_url}/public-dashboard/{access_token}"
             result["publicUrl"] = (
-                f"http://localhost:3000/public-dashboards/{access_token}"
+                f"{grafana_local_url}/public-dashboards/{access_token}"
             )
         return result
 
