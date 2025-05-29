@@ -9,12 +9,12 @@ from user.service.user_service import UserService
 class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         user = User(
-            id="7673a912-4f76-4e8b-bd40-18d8136e9a5b",
-            name="gyumin11",
-            email="gyumin11@example.com",
+            id="7673a912-4f76-4e8b-bd40-18d35d6e9a5b",
+            name="gyumin22",
+            email="gyumin22@example.com",
             mobile_no="1234567890",
             oauth_type=OAuthType.GOOGLE,
-            oauth_id="goodsq-oasah-ol",
+            oauth_id="goodsq-o32ah-ol",
             tos_agreed=True,
             created_at="2023-01-01T00:00:00Z",
             updated_at="2023-01-01T00:00:00Z",

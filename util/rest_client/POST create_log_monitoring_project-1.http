@@ -13,12 +13,12 @@ Authorization: Bearer {{mylog-jwt}}
   "log_level_json_path": null,
   "custom_json_fields": [],
   "custom_plain_fields": [
+    "date",
     "level",
-    "timestamp",
-    "|",
+    "time",
     "module",
     "||",
-    "[msg_detail]"
+    "msg_detail"
   ],
   "filters": [
     {

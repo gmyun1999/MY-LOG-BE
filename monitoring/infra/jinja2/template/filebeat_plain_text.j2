@@ -41,21 +41,21 @@ processors:
         project_id: "{{ project_id }}"
         
   {#— 필터 조건 —#}
-{%- if filters %}
-- drop_event:
-    when:
-      or:
-      {%- for flt in filters %}
-        {%- if flt.operator == "EQUALS" %}
-        - not:
-            equals:
-              {{ flt.field }}: "{{ flt.value }}"
-        {%- elif flt.operator == "NOT_EQUALS" %}
-        - equals:
-              {{ flt.field }}: "{{ flt.value }}"
-        {%- endif %}
-      {%- endfor %}
-{%- endif %}
+  {%- if filters %}
+  - drop_event:
+      when:
+        or:
+        {%- for flt in filters %}
+          {%- if flt.operator == "EQUALS" %}
+          - not:
+              equals:
+                {{ flt.field }}: "{{ flt.value }}"
+          {%- elif flt.operator == "NOT_EQUALS" %}
+          - equals:
+                {{ flt.field }}: "{{ flt.value }}"
+          {%- endif %}
+        {%- endfor %}
+  {%- endif %}
 
   {#— 파싱 실패 시 태그 추가 —#}
   - add_tags:
