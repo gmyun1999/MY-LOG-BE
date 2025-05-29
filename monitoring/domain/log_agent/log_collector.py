@@ -24,6 +24,14 @@ class FilterCondition(BaseModel):
     value: str
 
 
+class PlainRequiredField(StrEnum):
+    MSG_DETAIL = "msg_detail"
+    LEVEL = "level"
+    TIMESTAMP = "timestamp"
+    DATE = "date"
+    TIME = "time"
+
+
 class LogCollectorConfigContext(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -69,31 +77,59 @@ class LogCollectorConfigContext(BaseModel):
     filters: list[FilterCondition] = []
 
     @model_validator(mode="after")
-    def check_input_specific(cls, model):
-        if model.input_type is LogInputType.PLAIN:
-            if not model.multiline_pattern:
-                pass
-                # raise ValueError("plain 타입에는  multiline_pattern 필수")
-            if model.timestamp_field:
-                raise ValueError("plain text 타입에는 timestamp_field 들어갈수없습니다")
-            if model.timestamp_json_path:
+    def check_input_specific(self) -> "LogCollectorConfigContext":
+        if self.input_type is LogInputType.PLAIN:
+            # custom_plain_fields 필수
+            if not self.custom_plain_fields:
+                raise ValueError("plain text 타입에는 custom_plain_fields 필수")
+
+            fields_set = set(self.custom_plain_fields)
+
+            required = {
+                PlainRequiredField.MSG_DETAIL.value,
+                PlainRequiredField.LEVEL.value,
+            }
+            missing_required = required - fields_set
+            if missing_required:
                 raise ValueError(
-                    "plain text 타입에는 timestamp_json_path 들어갈수없습니다"
+                    f"plain text 타입에는 {', '.join(missing_required)} 필드가 필요합니다"
                 )
-            if model.log_level:
-                raise ValueError("plain text 타입에는 log_level 들어갈수없습니다")
-            if model.log_level_json_path:
+
+            ts = PlainRequiredField.TIMESTAMP.value
+            date_time = {
+                PlainRequiredField.DATE.value,
+                PlainRequiredField.TIME.value,
+            }
+            has_ts = ts in fields_set
+            has_date_time = date_time.issubset(fields_set)
+
+            if not (has_ts ^ has_date_time):
                 raise ValueError(
-                    "plain text 타입에는 log_level_json_path 들어갈수없습니다"
+                    "plain text 타입에는 'timestamp' 또는 'date'와 'time'이 둘 다 필요하며, "
+                    "두 조건을 동시에 가질 수 없습니다"
+                )
+
+            # json 전용 필드 사용 불가
+            forbidden_json = [
+                self.timestamp_field,
+                self.timestamp_json_path,
+                self.log_level,
+                self.log_level_json_path,
+                self.custom_json_fields,
+            ]
+            if any(forbidden_json):
+                raise ValueError(
+                    "plain text 타입에는 JSON 전용 필드를 사용할 수 없습니다"
                 )
 
         else:
-            if not model.timestamp_field:
+            # JSON 타입 필수 검증
+            if not self.timestamp_field:
                 raise ValueError("json 타입에는 timestamp_field 필수")
-            if not model.timestamp_json_path:
+            if not self.timestamp_json_path:
                 raise ValueError("json 타입에는 timestamp_json_path 필수")
-            if not model.log_level:
+            if not self.log_level:
                 raise ValueError("json 타입에는 log_level 필수")
-            if not model.log_level_json_path:
+            if not self.log_level_json_path:
                 raise ValueError("json 타입에는 log_level_json_path 필수")
-        return model
+        return self

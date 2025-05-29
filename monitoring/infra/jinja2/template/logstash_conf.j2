@@ -5,6 +5,15 @@ input {
 }
 
 filter {
+  if [date] and [time] {
+    mutate {
+      add_field => {
+        "timestamp" => "%{[date]} %{[time]}"
+      }
+      # 필요시 date/time 필드 제거
+      # remove_field => ["date", "time"]
+    }
+  }
   date {
     match => [
       "timestamp",
@@ -17,8 +26,8 @@ filter {
       "dd/MMM/yyyy:HH:mm:ss Z"             
     ]
     target => "@timestamp"
-}
   }
+}
 
 output {
   rabbitmq {
