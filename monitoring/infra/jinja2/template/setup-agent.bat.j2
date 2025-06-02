@@ -1,0 +1,124 @@
+@echo off
+REM =====================================================
+REM setup-agent.bat - {{ timestamp or "no-ts" }}
+REM 에이전트 구성 자동화 스크립트
+REM =====================================================
+
+setlocal enableextensions enabledelayedexpansion
+set "SCRIPTDIR=%~dp0"
+cd /d "%SCRIPTDIR%"
+
+REM --- 0) 설치 경로 입력 및 검증 ---
+:ASK_INSTALL_DIR
+echo 설치할 경로를 입력하세요 (예: C:\Program Files\LogAgent):
+set /p INSTALL_DIR=
+if not exist "%INSTALL_DIR%" (
+    echo 오류: "%INSTALL_DIR%" 경로가 존재하지 않습니다.
+    echo 다시 입력하세요.
+    echo.
+    goto ASK_INSTALL_DIR
+)
+
+echo.
+REM --- 1) 공통 파일 존재 여부 확인 및 개별 다운로드 ---
+
+REM 1-1) Filebeat
+if not exist "%INSTALL_DIR%\{{ filebeat_dir }}\" (
+    echo [1/5] filebeat.zip 다운로드 및 압축 해제 중...
+    call :download "{{ base_static_url }}/filebeat.zip"
+    powershell -Command ^
+      "Expand-Archive -Path 'filebeat.zip' -DestinationPath '%INSTALL_DIR%' -Force"
+    REM 중첩 폴더 제거 로직
+    if exist "%INSTALL_DIR%\{{ filebeat_dir }}\{{ filebeat_dir }}" (
+        powershell -Command ^
+          "Move-Item -Path '%INSTALL_DIR%\{{ filebeat_dir }}\{{ filebeat_dir }}\*' -Destination '%INSTALL_DIR%\{{ filebeat_dir }}' -Force"
+        rd /S /Q "%INSTALL_DIR%\{{ filebeat_dir }}\{{ filebeat_dir }}"
+    )
+) else (
+    echo [1/5] Filebeat 이미 설치되어 있음.
+)
+
+REM 1-2) Logstash
+if not exist "%INSTALL_DIR%\{{ logstash_dir }}\" (
+    echo [2/5] logstash-9.0.1.zip 다운로드 및 압축 해제 중...
+    call :download "{{ base_static_url }}/logstash-9.0.1.zip"
+    powershell -Command ^
+      "Expand-Archive -Path 'logstash-9.0.1.zip' -DestinationPath '%INSTALL_DIR%' -Force"
+    REM 중첩 폴더 제거 로직
+    if exist "%INSTALL_DIR%\{{ logstash_dir }}\{{ logstash_dir }}" (
+        powershell -Command ^
+          "Move-Item -Path '%INSTALL_DIR%\{{ logstash_dir }}\{{ logstash_dir }}\*' -Destination '%INSTALL_DIR%\{{ logstash_dir }}' -Force"
+        rd /S /Q "%INSTALL_DIR%\{{ logstash_dir }}\{{ logstash_dir }}"
+    )
+) else (
+    echo [2/5] Logstash 이미 설치되어 있음.
+)
+
+REM 1-3) run-filebeat.bat
+if not exist "%INSTALL_DIR%\run-filebeat.bat" (
+    echo run-filebeat.bat 다운로드 및 위치 복사 중...
+    call :download "{{ base_static_url }}/run-filebeat.bat"
+    move /Y "%SCRIPTDIR%\run-filebeat.bat" "%INSTALL_DIR%\run-filebeat.bat"
+) else (
+    echo run-filebeat.bat 이미 존재.
+)
+
+REM 1-4) run-logstash.bat
+if not exist "%INSTALL_DIR%\run-logstash.bat" (
+    echo run-logstash.bat 다운로드 및 위치 복사 중...
+    call :download "{{ base_static_url }}/run-logstash.bat"
+    move /Y "%SCRIPTDIR%\run-logstash.bat" "%INSTALL_DIR%\run-logstash.bat"
+) else (
+    echo run-logstash.bat 이미 존재.
+)
+
+REM 1-5) start-harvester.bat
+if not exist "%INSTALL_DIR%\start-harvester.bat" (
+    echo start-harvester.bat 다운로드 및 위치 복사 중...
+    call :download "{{ base_static_url }}/start-harvester.bat"
+    move /Y "%SCRIPTDIR%\start-harvester.bat" "%INSTALL_DIR%\start-harvester.bat"
+) else (
+    echo start-harvester.bat 이미 존재.
+)
+
+REM --- 2) 사용자별 설정 다운로드 ---
+echo.
+echo [3/5] 사용자별 설정 다운로드 중...
+call :download_as "{{ collector_config_url }}" filebeat.yml
+call :download_as "{{ router_config_url }}" logstash.conf
+
+REM --- 3) 설정 파일 복사 ---
+echo.
+echo [4/5] 설정 파일 복사 중...
+move /Y "%~dp0\filebeat.yml"  "%INSTALL_DIR%\{{ filebeat_dir }}\filebeat.yml"
+move /Y "%~dp0\logstash.conf" "%INSTALL_DIR%\{{ logstash_dir }}\config\logstash.conf"
+
+REM --- 4) 완료 안내 ---
+echo.
+echo [5/5] 모든 준비가 완료되었습니다.
+echo 설치 위치: %INSTALL_DIR%
+echo 실행: start-harvester.bat
+
+pause
+exit /b 0
+
+REM ================================
+REM 함수 정의 (스크립트 하단에 위치)
+REM ================================
+:download
+curl -f -O %1
+if errorlevel 1 (
+    echo 다운로드 실패: %1
+    pause
+    exit /b 1
+)
+goto :eof
+
+:download_as
+curl -f -o %2 %1
+if errorlevel 1 (
+    echo 다운로드 실패: %1
+    pause
+    exit /b 1
+)
+goto :eof

@@ -1,0 +1,78 @@
+# ============================== Filebeat inputs ===============================
+filebeat.inputs:
+  - type: filestream
+    id: {{ project_id }}
+    enabled: true
+    paths:
+      {%- for p in log_paths %}
+      - {{ p }}
+      {%- endfor %}
+
+    # ── JSON 로그 파싱 ──
+    json.keys_under_root: true
+    json.overwrite_keys: true
+    json.add_error_key: true
+
+# ============================== Processors =================================
+processors:
+  - add_host_metadata: { when.not.contains.tags: forwarded }
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+
+  - add_fields:
+      target: ""
+      fields:
+        project_id: "{{ project_id }}"
+        
+  # ── 필수 필드: timestamp 복사 ──
+  - copy_fields:
+      fields:
+        - from: "{{ timestamp_json_path }}"
+          to:   "{{ timestamp_field }}"
+      fail_on_error: false
+
+  # ── 필수 필드: log level 복사 ──
+  - copy_fields:
+      fields:
+        - from: "{{ log_level_json_path }}"
+          to:   "{{ log_level }}"
+      fail_on_error: false
+
+  # ── 사용자 정의 JSON 필드 복사 ──
+  {%- for f in custom_json_fields %}
+  - copy_fields:
+      fields:
+        - from: "{{ f.json_path }}"
+          to:   "{{ f.name }}"
+      fail_on_error: false
+  {%- endfor %}
+
+  {#— 필터 조건 (개수 무제한) —#}
+  {%- for flt in filters %}
+  - drop_event:
+      when:
+        {%- if flt.operator == "EQUALS" %}
+        equals:
+          {{ flt.field }}: "{{ flt.value }}"
+        {%- else %}
+        not:
+          equals:
+            {{ flt.field }}: "{{ flt.value }}"
+        {%- endif %}
+  {%- endfor %}
+
+  {#— JSON 파싱 오류 태그 —#}
+  - add_tags:
+      when:
+        has_fields: ["_jsonparsefailure"]
+      tags: ["_json_parse_error"]
+
+# ================================= Outputs ===================================
+output.logstash:
+  hosts: ['127.0.0.1:5044']
+  ssl.enabled: false
+
+# ================================== Logging ===================================
+logging.level: warning
+logging.to_files: true

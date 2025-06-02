@@ -27,7 +27,7 @@ class User(Domain):
     FIELD_UPDATED_AT = "updated_at"
 
     id: str
-    name: str | None
+    name: str
     email: str | None
     mobile_no: str | None
     oauth_type: OAuthType

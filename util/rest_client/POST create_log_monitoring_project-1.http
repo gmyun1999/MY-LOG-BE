@@ -1,0 +1,24 @@
+POST {{mylog-host}}/monitoring/log-project/step1
+Content-Type: application/json
+Authorization: Bearer {{mylog-jwt}}
+
+{
+  "project_name": "test22222",
+  "project_description": "Monitording project for Mydog",
+  "log_paths": ["F:\\my-log-be\\logs\\test_logs.log"],
+  "multiline_pattern": "^(INFO|WARNING|ERROR)",
+  "timestamp_field": null,
+  "timestamp_json_path": null,
+  "log_level": null,
+  "log_level_json_path": null,
+  "custom_json_fields": [],
+  "custom_plain_fields": [
+    "date",
+    "level",
+    "time",
+    "module",
+    "||",
+    "msg_detail"
+  ],
+  "platform": "windows"
+}

@@ -12,7 +12,9 @@ class Paginator(Generic[T]):
     @staticmethod
     def paginate(items: list[T], page: int = 1, page_size: int = 10) -> PagedResult[T]:
         if page < 1 or page_size < 1:
-            raise InvalidPagingParameterException("페이지 번호와 페이지 크기는 1 이상이어야 합니다.")
+            raise InvalidPagingParameterException(
+                "페이지 번호와 페이지 크기는 1 이상이어야 합니다."
+            )
 
         if page_size > Paginator.MAX_PAGE_SIZE:
             raise InvalidPagingParameterException(
@@ -23,7 +25,9 @@ class Paginator(Generic[T]):
         total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 0
 
         if page > total_pages and total_pages != 0:
-            raise InvalidPagingParameterException("페이지 번호가 총 페이지 수를 초과합니다.")
+            raise InvalidPagingParameterException(
+                "페이지 번호가 총 페이지 수를 초과합니다."
+            )
 
         start_index = (page - 1) * page_size
         end_index = start_index + page_size

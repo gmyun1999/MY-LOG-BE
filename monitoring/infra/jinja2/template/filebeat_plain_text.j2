@@ -1,0 +1,83 @@
+
+# ============================== Filebeat inputs ===============================
+filebeat.inputs:
+  - type: filestream
+    id: {{ project_id }}
+    enabled: true
+    paths:
+      {%- for p in log_paths %}
+      - {{ p }}
+      {%- endfor %}
+
+    {%- if multiline_pattern %}
+    parsers:
+      - multiline:
+          type: pattern
+          pattern: '{{ multiline_pattern }}'
+          negate: true
+          match: after
+    {%- endif %}
+
+# ======================= Modules (사용 안 함) ==============================
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+# ================================= Processors =================================
+processors:
+  - add_host_metadata: { when.not.contains.tags: forwarded }
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_kubernetes_metadata: ~
+  - dissect:
+      tokenizer: "{{ tokenizer_parts | join(' ') }}"
+      field: "message"
+      target_prefix: ""
+
+
+  - add_fields:
+      target: ""
+      fields:
+        project_id: "{{ project_id }}"
+        
+  {#— 필터 조건 —#}
+  {%- if filters %}
+  - drop_event:
+      when:
+        or:
+        {%- for flt in filters %}
+          {%- if flt.operator == "EQUALS" %}
+          - not:
+              equals:
+                {{ flt.field }}: "{{ flt.value }}"
+          {%- elif flt.operator == "NOT_EQUALS" %}
+          - equals:
+                {{ flt.field }}: "{{ flt.value }}"
+          {%- endif %}
+        {%- endfor %}
+  {%- endif %}
+
+  {#— 파싱 실패 시 태그 추가 —#}
+  - add_tags:
+      when:
+        not:
+          has_fields: {{ fields | map('string') | list }}
+      tags: ['_parsing_failed']
+
+  {#— 멀티라인 미설정 시 기본값 채우기 —#}
+  {%- if not multiline_pattern %}
+  - add_fields:
+      target: ""
+      fields:
+        level: "UNKNOWN"
+        timestamp: "0000-00-00 00:00:00,000"
+  {%- endif %}
+
+# ================================= Outputs ===================================
+output.logstash:
+  hosts: ['127.0.0.1:5044']
+  ssl.enabled: false
+
+# ================================== Logging ===================================
+logging.level: warning
+logging.to_files: true

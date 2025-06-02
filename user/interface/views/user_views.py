@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 import arrow
 from django.http import HttpRequest
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from pydantic import BaseModel, Field
 from rest_framework import status
 from rest_framework.views import APIView
@@ -17,13 +18,11 @@ from user.interface.validator.user_token_validator import validate_token
 from user.service.oauth.i_oauth_provider import IOAuthProvider
 from user.service.oauth.oauth_factory import OauthFactory
 from user.service.user_service import UserService
-from drf_spectacular.utils import extend_schema, OpenApiResponse
-
 from util.pydantic_serializer import PydanticToDjangoSerializer
+
 
 class OAuthLoginView(APIView):
     @dataclass
-    
     class AuthCode(BaseModel):
         token: str = Field(min_length=32)
 
@@ -34,9 +33,7 @@ class OAuthLoginView(APIView):
     @extend_schema(
         summary="OAuth 로그인 엔드포인트",
         description="access_token 을 body로 받아 OAuth 인증을 진행하고, 회원가입 또는 로그인 후 access/refresh 토큰을 반환합니다.",
-        parameters=[
-            PydanticToDjangoSerializer.convert(AuthCode)
-        ],
+        parameters=[PydanticToDjangoSerializer.convert(AuthCode)],
         responses={
             200: OpenApiResponse(
                 description="로그인 성공 시 access/refresh 토큰 반환",
@@ -45,29 +42,29 @@ class OAuthLoginView(APIView):
                     "properties": {
                         "access": {
                             "type": "string",
-                            "description": "액세스 토큰 (JWT)"
+                            "description": "액세스 토큰 (JWT)",
                         },
                         "refresh": {
                             "type": "string",
-                            "description": "리프레시 토큰 (JWT)"
-                        }
+                            "description": "리프레시 토큰 (JWT)",
+                        },
                     },
-                    "required": ["access", "refresh"]
-                }
+                    "required": ["access", "refresh"],
+                },
             ),
             400: OpenApiResponse(
                 response=PydanticToDjangoSerializer.convert(ErrorResponse),
-                description="code 누락 등 파라미터 오류"
+                description="code 누락 등 파라미터 오류",
             ),
             403: OpenApiResponse(
                 response=PydanticToDjangoSerializer.convert(ErrorResponse),
-                description="인증 실패 혹은 권한 없음"
+                description="인증 실패 혹은 권한 없음",
             ),
             503: OpenApiResponse(
                 response=PydanticToDjangoSerializer.convert(ErrorResponse),
-                description="서버 오류"
+                description="서버 오류",
             ),
-        }
+        },
     )
     @validate_body(AuthCode)
     def post(self, request, auth_server: str, body: AuthCode):
@@ -81,7 +78,7 @@ class OAuthLoginView(APIView):
             user = self.user_service.create_user(
                 User(
                     id=str(uuid.uuid4()),
-                    name=oauth_user_vo.name,
+                    name=oauth_user_vo.name or "",
                     email=oauth_user_vo.email,
                     mobile_no=oauth_user_vo.mobile_no,
                     oauth_type=auth_server,
@@ -93,7 +90,11 @@ class OAuthLoginView(APIView):
             )
 
         token_dict = self.user_service.create_user_token(user_id=user.id)
-        return success_response(status=status.HTTP_200_OK, data=token_dict, message=LoginMessage.LOGIN_SUCCESS)
+        return success_response(
+            status=status.HTTP_200_OK,
+            data=token_dict,
+            message=LoginMessage.LOGIN_SUCCESS,
+        )
 
 
 class UserView(APIView):
@@ -115,21 +116,21 @@ class RefreshTokenView(APIView):
                     "properties": {
                         "access": {
                             "type": "string",
-                            "description": "새로 발급된 access JWT"
+                            "description": "새로 발급된 access JWT",
                         }
                     },
-                    "required": ["access"]
-                }
+                    "required": ["access"],
+                },
             ),
             403: OpenApiResponse(
                 response=PydanticToDjangoSerializer.convert(ErrorResponse),
-                description="Refresh 토큰 만료 혹은 유효하지 않음"
+                description="Refresh 토큰 만료 혹은 유효하지 않음",
             ),
             503: OpenApiResponse(
                 response=PydanticToDjangoSerializer.convert(ErrorResponse),
-                description="서버 오류"
+                description="서버 오류",
             ),
-        }
+        },
     )
     @validate_token(
         roles=[UserRole.USER, UserRole.ADMIN], validate_type=UserTokenType.REFRESH

@@ -1,6 +1,7 @@
 import copy
 from functools import wraps
 from typing import Type
+
 from pydantic import BaseModel, ValidationError
 from rest_framework.parsers import JSONParser
 
@@ -38,7 +39,6 @@ def validate_body(model: Type[BaseModel]):
             try:
                 validated_body = model.model_validate(body)
             except ValidationError as e:
-                print(e.errors())
                 return error_response(
                     code="VALIDATE_BODY_ERROR",
                     message="Body validation error",

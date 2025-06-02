@@ -1,0 +1,45 @@
+input {
+  beats {
+    port => {{ beats_port }}
+  }
+}
+
+filter {
+  if [date] and [time] {
+    mutate {
+      add_field => {
+        "timestamp" => "%{[date]} %{[time]}"
+      }
+      # 필요시 date/time 필드 제거
+      # remove_field => ["date", "time"]
+    }
+  }
+  date {
+    match => [
+      "timestamp",
+      "ISO8601",                         
+      "UNIX_MS",                
+      "UNIX",                         
+      "yyyy-MM-dd HH:mm:ss,SSS",         
+      "yyyy/MM/dd HH:mm:ss",             
+      "MM/dd/yyyy HH:mm:ss Z",           
+      "dd/MMM/yyyy:HH:mm:ss Z"             
+    ]
+    target => "@timestamp"
+  }
+}
+
+output {
+  rabbitmq {
+    host          => "{{ mq_host }}"
+    port          => {{ mq_port }}
+    user          => "{{ mq_user }}"
+    password      => "{{ mq_password }}"
+    vhost         => "{{ mq_vhost }}"
+    exchange      => "{{ mq_exchange }}"
+    exchange_type => "{{ mq_exchange_type }}"
+    key           => "{{ mq_routing_key }}"
+    persistent    => {{ mq_persistent | lower }}
+    heartbeat     => {{ mq_heartbeat }}
+  }
+}

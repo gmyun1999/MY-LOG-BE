@@ -1,0 +1,19 @@
+POST {{mylog-host}}/monitoring/log-project/step2
+Content-Type: application/json
+Authorization: Bearer {{mylog-jwt}}
+
+{
+  "project_id": "df1f4b85-4ac1-4e94-a264-4abe8f22b19e"
+}
+
+{
+  "data":
+    {
+      "timestamp": "2023-10-01T12:00:00Z",
+      "level": "ERROR",
+      "message":{
+        "text": "An error occurred while processing the request.",
+        "details": "Stack trace or additional error details can be provided here."
+      }
+    }
+}

@@ -1,0 +1,4 @@
+GET {{mylog-host}}/monitoring/project/9ad3e948-96cc-4d3a-8ed4-a8b1b9977d45
+Content-Type: application/json
+Authorization: Bearer {{mylog-jwt}}
+

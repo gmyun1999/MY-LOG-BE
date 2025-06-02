@@ -72,7 +72,9 @@ class UserTokenManager(ITokenManager):
             guest_id=guest_id,
             role=role,
             type=type,
-            exp=int((datetime.now() + timedelta(seconds=seconds)).timestamp()),  # 만료시간
+            exp=int(
+                (datetime.now() + timedelta(seconds=seconds)).timestamp()
+            ),  # 만료시간
             iat=int(datetime.now().timestamp()),  # 발급시간
         )
 
